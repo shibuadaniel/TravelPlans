@@ -6,6 +6,14 @@ import { readStoredFile } from "@/lib/uploads";
 import { cookies } from "next/headers";
 
 export async function GET(request: Request) {
+  try {
+    return await readAvatar(request);
+  } catch {
+    return new NextResponse("Not found", { status: 404 });
+  }
+}
+
+async function readAvatar(request: Request) {
   const requestedTrip = new URL(request.url).searchParams.get("trip");
   const jar = await cookies();
   const pending = await verifyGuestPinToken(jar.get(GUEST_PIN_COOKIE)?.value);
@@ -15,8 +23,10 @@ export async function GET(request: Request) {
   if (requestedTrip) {
     if (!(await canReadTrip(requestedTrip))) return new NextResponse("Not found", { status: 404 });
     avatar = await tripOwnerAvatar(requestedTrip);
+  } else if (tripId) {
+    avatar = await tripOwnerAvatar(tripId);
   } else {
-    avatar = tripId ? await tripOwnerAvatar(tripId) : await userAvatar((await getCurrentUser())?.id ?? "");
+    avatar = await userAvatar((await getCurrentUser())?.id ?? "");
   }
   if (!avatar) return new NextResponse("Not found", { status: 404 });
   const bytes = await readStoredFile(avatar.key);

@@ -66,12 +66,24 @@ function mapUser(row: UserRow): User {
 
 let pinColumnsReady: Promise<void> | null = null;
 
+function isLockTimeout(error: unknown) {
+  return typeof error === "object" && error !== null && "code" in error && (error as { code?: string }).code === "55P03";
+}
+
 function ensureSharePinColumns() {
   pinColumnsReady ??= (async () => {
-    await dbRun("ALTER TABLE users ADD COLUMN IF NOT EXISTS pin_hash text");
-    await dbRun("ALTER TABLE users ADD COLUMN IF NOT EXISTS share_gate integer NOT NULL DEFAULT 0");
-    await dbRun("ALTER TABLE users ADD COLUMN IF NOT EXISTS avatar_key text");
-    await dbRun("ALTER TABLE users ADD COLUMN IF NOT EXISTS avatar_mime text");
+    try {
+      await transaction(async () => {
+        await dbRun("SET LOCAL lock_timeout = '3s'");
+        await dbRun("ALTER TABLE users ADD COLUMN IF NOT EXISTS pin_hash text");
+        await dbRun("ALTER TABLE users ADD COLUMN IF NOT EXISTS share_gate integer NOT NULL DEFAULT 0");
+        await dbRun("ALTER TABLE users ADD COLUMN IF NOT EXISTS avatar_key text");
+        await dbRun("ALTER TABLE users ADD COLUMN IF NOT EXISTS avatar_mime text");
+      });
+    } catch (error) {
+      pinColumnsReady = null;
+      if (!isLockTimeout(error)) throw error;
+    }
   })().catch((error) => {
     pinColumnsReady = null;
     throw error;
@@ -103,6 +115,7 @@ export async function tripSharePin(tripId: string) {
 }
 
 export async function userAvatar(userId: string) {
+  if (!userId) return null;
   await ensureSharePinColumns();
   const row = await dbGet<{ avatar_key: string | null; avatar_mime: string | null }>(
     "SELECT avatar_key, avatar_mime FROM users WHERE id = ?",
