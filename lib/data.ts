@@ -89,8 +89,18 @@ export async function insertUser(id: string, email: string) {
   return id;
 }
 
-export async function completeOnboarding(userId: string, name: string) {
-  await dbRun("UPDATE users SET name = ?, onboarded_at = ? WHERE id = ?", text(name, 80), now(), userId);
+export async function completeOnboarding(userId: string, name: string, email: string) {
+  const stamp = now();
+  await dbRun(
+    `INSERT INTO users (id, email, name, onboarded_at, created_at)
+     VALUES (?, ?, ?, ?, ?)
+     ON CONFLICT (id) DO UPDATE SET name = excluded.name, onboarded_at = excluded.onboarded_at`,
+    userId,
+    email.trim().toLowerCase(),
+    text(name, 80),
+    stamp,
+    stamp,
+  );
 }
 
 export async function getRole(userId: string, tripId: string) {

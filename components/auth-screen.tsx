@@ -11,6 +11,7 @@ import NextLink from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { registerAccount, signIn } from "@/lib/actions/auth";
+import { safeInternalPath } from "@/lib/format";
 
 export function SignInForm({ nextPath }: { nextPath: string }) {
   const router = useRouter();
@@ -28,7 +29,7 @@ export function SignInForm({ nextPath }: { nextPath: string }) {
       setError(result.error);
       return;
     }
-    router.push(result.data.href);
+    router.push(safeInternalPath(result.data.href, "/"));
     router.refresh();
   }
 
@@ -72,7 +73,7 @@ export function RegisterForm() {
       setError(result.error);
       return;
     }
-    router.push(result.data.href);
+    router.push(safeInternalPath(result.data.href, "/onboarding"));
     router.refresh();
   }
 
@@ -82,7 +83,15 @@ export function RegisterForm() {
         Create account
       </Typography>
       <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-        Family can view a trip with a share link. They don&apos;t need an account.
+        Family can view a trip with a share link. They don&apos;t need an account. By creating an account you agree to the{" "}
+        <MuiLink component={NextLink} href="/terms">
+          Terms
+        </MuiLink>{" "}
+        and{" "}
+        <MuiLink component={NextLink} href="/privacy">
+          Privacy Policy
+        </MuiLink>
+        .
       </Typography>
       <Stack component="form" spacing={1.5} onSubmit={(event) => { event.preventDefault(); void submit(); }}>
         {error ? <Alert severity="error">{error}</Alert> : null}

@@ -60,11 +60,11 @@ export async function signOut() {
   redirect("/auth/sign-in");
 }
 
-export async function finishOnboarding(name: string, next: "trips" | "create"): Promise<Result<{ href: string }>> {
+export async function finishOnboarding(name: string, next: "trips" | "create"): Promise<{ ok: false; error: string }> {
   const user = await getCurrentUser();
   if (!user) return { ok: false, error: "Sign in required." };
   const trimmed = name.trim();
   if (!trimmed) return { ok: false, error: "Enter your name." };
-  await saveOnboarding(user.id, trimmed);
-  return { ok: true, data: { href: next === "create" ? "/trips/new" : "/" } };
+  await saveOnboarding(user.id, trimmed, user.email);
+  redirect(next === "create" ? "/trips/new" : "/");
 }

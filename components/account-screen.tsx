@@ -9,6 +9,7 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { ConfirmDialog } from "@/components/confirm-dialog";
 import { deleteAccount, exportAccount } from "@/lib/actions/account";
+import { safeInternalPath } from "@/lib/format";
 
 export function AccountScreen({ email, name }: { email: string; name: string }) {
   const router = useRouter();
@@ -43,7 +44,7 @@ export function AccountScreen({ email, name }: { email: string; name: string }) 
       setError(result.error);
       return;
     }
-    router.push(result.data.href);
+    router.push(safeInternalPath(result.data.href, "/auth/sign-in", { allowAuth: true }));
     router.refresh();
   }
 

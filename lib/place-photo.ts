@@ -251,6 +251,24 @@ async function photoForDestination(destination: string): Promise<PlacePhoto | nu
   return photo;
 }
 
+const PHOTO_BUDGET_MS = 3000;
+
+function withinBudget<T>(promise: Promise<T>, fallback: T) {
+  return new Promise<T>((resolve) => {
+    const timer = setTimeout(() => resolve(fallback), PHOTO_BUDGET_MS);
+    promise.then(
+      (value) => {
+        clearTimeout(timer);
+        resolve(value);
+      },
+      () => {
+        clearTimeout(timer);
+        resolve(fallback);
+      },
+    );
+  });
+}
+
 export async function withPlacePhotos(trips: TripListItem[]): Promise<TripListItem[]> {
   await dbRun(`
     CREATE TABLE IF NOT EXISTS place_photos (
@@ -264,7 +282,7 @@ export async function withPlacePhotos(trips: TripListItem[]): Promise<TripListIt
   const keys = new Map<string, Promise<PlacePhoto | null>>();
   for (const trip of trips) {
     const key = placeKey(trip.destination);
-    if (key && !keys.has(key)) keys.set(key, photoForDestination(trip.destination));
+    if (key && !keys.has(key)) keys.set(key, withinBudget(photoForDestination(trip.destination), null));
   }
   await Promise.all(keys.values());
   const resolved = new Map<string, PlacePhoto | null>();

@@ -1,23 +1,23 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
-import { sessionCookieOptions } from "@/lib/supabase/cookies";
+import { withSessionLifetime } from "@/lib/supabase/cookies";
 
-export async function updateSession(request: NextRequest) {
-  let response = NextResponse.next({ request });
+export async function updateSession(request: NextRequest, requestHeaders: Headers) {
+  let response = NextResponse.next({ request: { headers: requestHeaders } });
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
   if (!url || !anonKey) return { response, userId: null as string | null };
 
   const supabase = createServerClient(url, anonKey, {
-    cookieOptions: sessionCookieOptions,
     cookies: {
       getAll() {
         return request.cookies.getAll();
       },
       setAll(cookiesToSet) {
-        for (const { name, value } of cookiesToSet) request.cookies.set(name, value);
-        response = NextResponse.next({ request });
-        for (const { name, value, options } of cookiesToSet) response.cookies.set(name, value, options);
+        const cookies = withSessionLifetime(cookiesToSet);
+        for (const { name, value } of cookies) request.cookies.set(name, value);
+        response = NextResponse.next({ request: { headers: requestHeaders } });
+        for (const { name, value, options } of cookies) response.cookies.set(name, value, options);
       },
     },
   });

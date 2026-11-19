@@ -77,12 +77,11 @@ export function pastelGradient(seed: string) {
   return `linear-gradient(160deg, hsl(${hue} 62% 82%) 0%, hsl(${hueTwo} 55% 74%) 100%)`;
 }
 
-export function safeInternalPath(value: string | undefined, fallback: string) {
+export function safeInternalPath(value: string | undefined, fallback: string, options?: { allowAuth?: boolean }) {
   if (!value) return fallback;
   const trimmed = value.trim();
-  if (!trimmed.startsWith("/") || trimmed.startsWith("//") || trimmed.startsWith("/\\") || trimmed.startsWith("/auth")) {
-    return fallback;
-  }
+  if (!trimmed.startsWith("/") || trimmed.startsWith("//") || trimmed.startsWith("/\\")) return fallback;
+  if (!options?.allowAuth && trimmed.startsWith("/auth")) return fallback;
   if (trimmed.includes("\\") || trimmed.includes("@") || trimmed.includes("\0")) return fallback;
   let decoded = trimmed;
   try {
@@ -91,7 +90,8 @@ export function safeInternalPath(value: string | undefined, fallback: string) {
     return fallback;
   }
   const path = decoded.split("#")[0]?.split("?")[0] ?? "";
-  if (!path.startsWith("/") || path.startsWith("//") || path.startsWith("/\\") || path.startsWith("/auth")) return fallback;
+  if (!path.startsWith("/") || path.startsWith("//") || path.startsWith("/\\")) return fallback;
+  if (!options?.allowAuth && path.startsWith("/auth")) return fallback;
   if (path.includes("\\") || path.includes("//") || path.split("/").includes("..")) return fallback;
   if (!/^\/[A-Za-z0-9/_\-.]*$/.test(path)) return fallback;
   return path;

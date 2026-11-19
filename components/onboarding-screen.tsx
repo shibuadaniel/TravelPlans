@@ -6,12 +6,10 @@ import Button from "@mui/material/Button";
 import Stack from "@mui/material/Stack";
 import TextField from "@mui/material/TextField";
 import Typography from "@mui/material/Typography";
-import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { finishOnboarding } from "@/lib/actions/auth";
 
 export function OnboardingScreen() {
-  const router = useRouter();
   const [name, setName] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
@@ -20,13 +18,8 @@ export function OnboardingScreen() {
     setPending(true);
     setError(null);
     const result = await finishOnboarding(name, next);
+    if (!result.ok) setError(result.error);
     setPending(false);
-    if (!result.ok) {
-      setError(result.error);
-      return;
-    }
-    router.push(result.data.href);
-    router.refresh();
   }
 
   return (
