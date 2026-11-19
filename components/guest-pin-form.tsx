@@ -31,14 +31,27 @@ export function GuestPinForm() {
   }
 
   return (
-    <Box sx={{ px: 2, py: 4 }}>
-      <Typography variant="h5" component="h1">
-        Where are we?
-      </Typography>
-      <Typography variant="body2" color="text.secondary" sx={{ mt: 1, mb: 2 }}>
-        Enter the PIN from the person who sent this link.
-      </Typography>
-      <Stack component="form" spacing={1.5} onSubmit={(event) => { event.preventDefault(); void submit(); }}>
+    <Box sx={{ minHeight: "100dvh", display: "flex", alignItems: "center", justifyContent: "center", px: 2 }}>
+      <Stack
+        component="form"
+        spacing={1.5}
+        onSubmit={(event) => { event.preventDefault(); void submit(); }}
+        sx={{
+          width: "100%",
+          maxWidth: 360,
+          p: 3,
+          bgcolor: "background.paper",
+          border: 1,
+          borderColor: "divider",
+          borderRadius: 2,
+        }}
+      >
+        <Typography variant="h5" component="h1">
+          Where are we?
+        </Typography>
+        <Typography variant="body2" color="text.secondary">
+          Enter the PIN from the person who sent this link.
+        </Typography>
         {error ? <Alert severity="error">{error}</Alert> : null}
         <PinField label="PIN" value={pin} onChange={setPin} />
         <Button type="submit" variant="contained" disabled={pending}>
