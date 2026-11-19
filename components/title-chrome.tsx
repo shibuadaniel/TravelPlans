@@ -32,7 +32,7 @@ export function TitleChrome({
         bgcolor: "background.default",
         px: 2,
         pt: "calc(16px + env(safe-area-inset-top))",
-        pb: 1.5,
+        pb: 0.5,
       }}
     >
       <Box

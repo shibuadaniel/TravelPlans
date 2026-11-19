@@ -1,8 +1,6 @@
 "use client";
 
-import PrintIcon from "@mui/icons-material/Print";
 import Box from "@mui/material/Box";
-import IconButton from "@mui/material/IconButton";
 import type { ReactNode } from "react";
 import { SectionAccordion } from "@/components/section-accordion";
 import { CarsBody, CongregationsBody, FlightsBody, InsuranceBody, StaysBody } from "@/components/section-bodies";
@@ -30,20 +28,9 @@ export function TripBriefing({
         title={trip.destination}
         subtitle={travelReturnLabel(trip.travelDate, trip.returnDate)}
         avatarSrc={`/api/avatar?trip=${trip.id}`}
-        actions={
-          mode === "guest" ? null : (
-            <>
-              {mode === "owner" ? (
-                <IconButton aria-label="Print" onClick={() => window.print()}>
-                  <PrintIcon />
-                </IconButton>
-              ) : null}
-              {mode === "owner" ? ownerTools : null}
-            </>
-          )
-        }
+        actions={mode === "owner" ? ownerTools : null}
       />
-      <Box sx={{ px: 2, pt: 2 }}>
+      <Box sx={{ px: 2, pt: 1 }}>
         <SectionAccordion
           title="Flights"
           defaultExpanded
