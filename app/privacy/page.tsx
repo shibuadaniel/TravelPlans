@@ -7,7 +7,7 @@ export default function PrivacyPage() {
   return (
     <LegalPage title="Privacy">
       <Typography>
-        Where are we? stores the email and display name you use to sign in, plus the trip details you enter: places, dates, notes, flights, cars, stays, insurance, congregations, and files you upload.
+        Where are we? stores the email and display name you use to sign in, an optional profile photo, plus the trip details you enter: places, dates, notes, flights, cars, stays, insurance, congregations, and files you upload. The profile photo is shown on your share links.
       </Typography>
       <Typography>
         Accounts, trip records, and files are stored in Supabase. Uploaded documents stay in a private bucket. People you share a trip with can open it with the link and your PIN. They do not need an account. Share links and the PIN are stored as hashes, not as the link or the PIN itself. Changing the PIN signs out anyone who already opened a link.

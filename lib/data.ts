@@ -70,6 +70,8 @@ function ensureSharePinColumns() {
   pinColumnsReady ??= (async () => {
     await dbRun("ALTER TABLE users ADD COLUMN IF NOT EXISTS pin_hash text");
     await dbRun("ALTER TABLE users ADD COLUMN IF NOT EXISTS share_gate integer NOT NULL DEFAULT 0");
+    await dbRun("ALTER TABLE users ADD COLUMN IF NOT EXISTS avatar_key text");
+    await dbRun("ALTER TABLE users ADD COLUMN IF NOT EXISTS avatar_mime text");
   })().catch((error) => {
     pinColumnsReady = null;
     throw error;
@@ -98,6 +100,42 @@ export async function tripSharePin(tripId: string) {
   );
   if (!row?.pin_hash) return null;
   return { pinHash: row.pin_hash, gate: Number(row.share_gate) };
+}
+
+export async function userAvatar(userId: string) {
+  await ensureSharePinColumns();
+  const row = await dbGet<{ avatar_key: string | null; avatar_mime: string | null }>(
+    "SELECT avatar_key, avatar_mime FROM users WHERE id = ?",
+    userId,
+  );
+  if (!row?.avatar_key || !row.avatar_mime) return null;
+  return { key: row.avatar_key, mime: row.avatar_mime };
+}
+
+export async function tripOwnerAvatar(tripId: string) {
+  await ensureSharePinColumns();
+  const row = await dbGet<{ avatar_key: string | null; avatar_mime: string | null }>(
+    `SELECT u.avatar_key, u.avatar_mime
+     FROM trips t JOIN users u ON u.id = t.owner_user_id
+     WHERE t.id = ?`,
+    tripId,
+  );
+  if (!row?.avatar_key || !row.avatar_mime) return null;
+  return { key: row.avatar_key, mime: row.avatar_mime };
+}
+
+export async function replaceUserAvatar(userId: string, key: string, mime: string) {
+  await ensureSharePinColumns();
+  const previous = await userAvatar(userId);
+  await dbRun("UPDATE users SET avatar_key = ?, avatar_mime = ? WHERE id = ?", key, mime, userId);
+  return previous?.key ?? null;
+}
+
+export async function clearUserAvatar(userId: string) {
+  await ensureSharePinColumns();
+  const previous = await userAvatar(userId);
+  await dbRun("UPDATE users SET avatar_key = NULL, avatar_mime = NULL WHERE id = ?", userId);
+  return previous?.key ?? null;
 }
 
 export async function findUserById(id: string) {

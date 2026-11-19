@@ -8,10 +8,11 @@ import Typography from "@mui/material/Typography";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { PinField } from "@/components/pin-field";
+import { ProfilePhoto } from "@/components/profile-photo";
 import { submitSharePin } from "@/lib/actions/share-pin";
 import { safeInternalPath } from "@/lib/format";
 
-export function GuestPinForm() {
+export function GuestPinForm({ hasPhoto = false }: { hasPhoto?: boolean }) {
   const router = useRouter();
   const [pin, setPin] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -46,9 +47,12 @@ export function GuestPinForm() {
           borderRadius: 2,
         }}
       >
-        <Typography variant="h5" component="h1">
-          Where are we?
-        </Typography>
+        <Box sx={{ display: "flex", alignItems: "center", gap: 1.5 }}>
+          <ProfilePhoto src={hasPhoto ? "/api/avatar" : undefined} />
+          <Typography variant="h5" component="h1">
+            Where are we?
+          </Typography>
+        </Box>
         <Typography variant="body2" color="text.secondary">
           Enter the PIN from the person who sent this link.
         </Typography>

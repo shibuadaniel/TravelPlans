@@ -8,7 +8,9 @@ create table if not exists public.users (
   onboarded_at text,
   created_at text not null,
   pin_hash text,
-  share_gate integer not null default 0
+  share_gate integer not null default 0,
+  avatar_key text,
+  avatar_mime text
 );
 
 create table if not exists public.trips (

@@ -27,6 +27,21 @@ function resolveMime(file: File) {
   return EXT_MIME[ext] ?? "";
 }
 
+export async function storeAvatar(file: File) {
+  const mime = resolveMime(file);
+  if (!mime.startsWith("image/")) throw new Error("Choose a JPEG, PNG, WebP, or GIF.");
+  const bytes = Buffer.from(await file.arrayBuffer());
+  if (bytes.length === 0) throw new Error("That file is empty.");
+  if (bytes.length > 2 * 1024 * 1024) throw new Error("Profile photos must be 2 MB or smaller.");
+  const key = crypto.randomUUID();
+  const { error } = await createServiceRoleClient().storage.from(BUCKET).upload(key, bytes, {
+    contentType: mime,
+    upsert: false,
+  });
+  if (error) throw new Error("Could not store that photo.");
+  return { mime, key };
+}
+
 export async function storeFile(file: File) {
   const mime = resolveMime(file);
   if (!mime) {
