@@ -51,6 +51,7 @@ export function SignInForm({ nextPath }: { nextPath: string }) {
           Create an account
         </MuiLink>
       </Typography>
+      <LegalLinks />
     </Box>
   );
 }
@@ -97,6 +98,21 @@ export function RegisterForm() {
           Sign in
         </MuiLink>
       </Typography>
+      <LegalLinks />
     </Box>
+  );
+}
+
+function LegalLinks() {
+  return (
+    <Typography variant="body2" color="text.secondary" sx={{ mt: 2 }}>
+      <MuiLink component={NextLink} href="/privacy">
+        Privacy
+      </MuiLink>
+      {" · "}
+      <MuiLink component={NextLink} href="/terms">
+        Terms
+      </MuiLink>
+    </Typography>
   );
 }

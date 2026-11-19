@@ -138,6 +138,14 @@ create index if not exists idx_congregations_trip on public.congregations (trip_
 create index if not exists idx_insurance_docs_trip on public.insurance_documents (trip_id, sort_order);
 create index if not exists idx_share_trip on public.share_links (trip_id);
 
+create table if not exists public.auth_attempts (
+  id text primary key,
+  attempt_key text not null,
+  created_at text not null
+);
+
+create index if not exists idx_auth_attempts_key on public.auth_attempts (attempt_key, created_at);
+
 -- The app talks to Postgres with DATABASE_URL, which bypasses row level security.
 alter table public.users enable row level security;
 alter table public.trips enable row level security;
@@ -150,6 +158,7 @@ alter table public.insurance enable row level security;
 alter table public.insurance_documents enable row level security;
 alter table public.share_links enable row level security;
 alter table public.place_photos enable row level security;
+alter table public.auth_attempts enable row level security;
 
 insert into storage.buckets (id, name, public)
 values ('trip-documents', 'trip-documents', false)

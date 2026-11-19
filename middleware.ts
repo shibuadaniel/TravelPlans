@@ -3,6 +3,8 @@ import { updateSession } from "@/lib/supabase/middleware";
 
 function isPublic(pathname: string) {
   return (
+    pathname === "/privacy" ||
+    pathname === "/terms" ||
     pathname.startsWith("/auth") ||
     pathname.startsWith("/s/") ||
     pathname.startsWith("/guest") ||

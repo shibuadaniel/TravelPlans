@@ -670,6 +670,16 @@ export async function saveCongregations(tripId: string, congregations: Congregat
   return (await getBundle(tripId, "owner"))?.congregations ?? [];
 }
 
+export async function deleteOwnedTrips(userId: string) {
+  const owned = await dbAll<{ id: string }>("SELECT id FROM trips WHERE owner_user_id = ?", userId);
+  for (const trip of owned) await deleteTrip(trip.id);
+}
+
+export async function deleteUserProfile(userId: string) {
+  await dbRun("DELETE FROM trip_members WHERE user_id = ?", userId);
+  await dbRun("DELETE FROM users WHERE id = ?", userId);
+}
+
 export async function deleteTrip(tripId: string) {
   const stayKeys = await dbAll<{ document_key: string | null }>(
     "SELECT document_key FROM stays WHERE trip_id = ?",

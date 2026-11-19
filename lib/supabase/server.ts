@@ -3,6 +3,7 @@ import "server-only";
 import { createServerClient } from "@supabase/ssr";
 import { createClient as createServiceClient } from "@supabase/supabase-js";
 import { cookies } from "next/headers";
+import { sessionCookieOptions } from "@/lib/supabase/cookies";
 
 function publicEnv() {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -15,6 +16,7 @@ export async function createClient() {
   const { url, anonKey } = publicEnv();
   const cookieStore = await cookies();
   return createServerClient(url, anonKey, {
+    cookieOptions: sessionCookieOptions,
     cookies: {
       getAll() {
         return cookieStore.getAll();

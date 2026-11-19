@@ -48,11 +48,16 @@ export function AppShell({
             </Typography>
             <Box sx={{ flex: 1 }} />
             {signedIn ? (
-              <Box component="form" action={signOut}>
-                <Button type="submit" color="inherit">
-                  Sign out
+              <>
+                <Button component={Link} href="/account" color="inherit">
+                  Account
                 </Button>
-              </Box>
+                <Box component="form" action={signOut}>
+                  <Button type="submit" color="inherit">
+                    Sign out
+                  </Button>
+                </Box>
+              </>
             ) : null}
           </Toolbar>
         </AppBar>

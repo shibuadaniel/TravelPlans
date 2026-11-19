@@ -78,8 +78,21 @@ export function pastelGradient(seed: string) {
 }
 
 export function safeInternalPath(value: string | undefined, fallback: string) {
-  if (!value || !value.startsWith("/") || value.startsWith("//") || value.startsWith("/auth")) {
+  if (!value) return fallback;
+  const trimmed = value.trim();
+  if (!trimmed.startsWith("/") || trimmed.startsWith("//") || trimmed.startsWith("/\\") || trimmed.startsWith("/auth")) {
     return fallback;
   }
-  return value;
+  if (trimmed.includes("\\") || trimmed.includes("@") || trimmed.includes("\0")) return fallback;
+  let decoded = trimmed;
+  try {
+    decoded = decodeURIComponent(trimmed);
+  } catch {
+    return fallback;
+  }
+  const path = decoded.split("#")[0]?.split("?")[0] ?? "";
+  if (!path.startsWith("/") || path.startsWith("//") || path.startsWith("/\\") || path.startsWith("/auth")) return fallback;
+  if (path.includes("\\") || path.includes("//") || path.split("/").includes("..")) return fallback;
+  if (!/^\/[A-Za-z0-9/_\-.]*$/.test(path)) return fallback;
+  return path;
 }
