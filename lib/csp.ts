@@ -13,7 +13,7 @@ export function contentSecurityPolicy(nonce: string) {
     "default-src 'self'",
     `script-src 'self' 'nonce-${nonce}' 'strict-dynamic'`,
     "style-src 'self' 'unsafe-inline'",
-    "img-src 'self' data: https://upload.wikimedia.org",
+    "img-src 'self' data: https://upload.wikimedia.org https://thumb.wikimedia.org",
     "font-src 'self'",
     `connect-src 'self' ${supabaseOrigin()}`,
     "frame-ancestors 'none'",
