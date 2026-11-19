@@ -29,36 +29,43 @@ export function TitleChrome({
         position: "sticky",
         top: 0,
         zIndex: 10,
-        bgcolor: "background.paper",
-        borderBottom: 1,
-        borderColor: "divider",
-        display: "flex",
-        alignItems: "center",
-        gap: 0.5,
-        px: 0.5,
-        py: 1,
-        pt: "calc(8px + env(safe-area-inset-top))",
+        bgcolor: "background.default",
+        px: 2,
+        pt: "calc(16px + env(safe-area-inset-top))",
+        pb: 1.5,
       }}
     >
+      <Box
+        sx={{
+          bgcolor: "background.paper",
+          border: 1,
+          borderColor: "divider",
+          borderRadius: 2,
+          display: "flex",
+          alignItems: "center",
+          gap: 2,
+          px: 2,
+          py: 1.5,
+        }}
+      >
       {backHref ? (
         <IconButton
           component={Link}
           href={backHref}
           aria-label={backLabel}
           className="no-print"
+          sx={{ ml: -0.5 }}
         >
           <ArrowBackIcon />
         </IconButton>
-      ) : (
-        <Box sx={{ width: 8 }} />
-      )}
+      ) : null}
       {avatarSrc !== undefined ? <ProfilePhoto src={avatarSrc || undefined} size={44} /> : null}
       <Box sx={{ flex: 1, minWidth: 0 }}>
         <Typography
           variant="h4"
           component="h1"
           noWrap
-          sx={{ fontSize: { xs: "1.6rem", sm: "2rem" }, lineHeight: 1.15 }}
+          sx={{ fontSize: { xs: "1.25rem", sm: "1.35rem" }, lineHeight: 1.2 }}
         >
           {displayDestination(title)}
         </Typography>
@@ -69,10 +76,11 @@ export function TitleChrome({
         ) : null}
       </Box>
       {actions ? (
-        <Box className="no-print" sx={{ display: "flex", alignItems: "center" }}>
+        <Box className="no-print" sx={{ display: "flex", alignItems: "center", mr: -0.5 }}>
           {actions}
         </Box>
       ) : null}
+      </Box>
     </Box>
   );
 }
