@@ -66,16 +66,17 @@ function FormActions({
 function useActiveIndex(count: number) {
   const [index, setIndex] = useState(0);
   const previous = useRef(count);
+  const last = Math.max(0, count - 1);
   if (count > previous.current) {
     previous.current = count;
-    if (index !== count - 1) setIndex(count - 1);
-  } else if (index > count - 1) {
+    if (index !== last) setIndex(last);
+  } else if (index > last) {
     previous.current = count;
-    setIndex(Math.max(0, count - 1));
+    setIndex(last);
   } else if (previous.current !== count) {
     previous.current = count;
   }
-  return [count === 0 ? 0 : Math.min(index, Math.max(0, count - 1)), setIndex] as const;
+  return [count === 0 ? 0 : Math.min(index, last), setIndex] as const;
 }
 
 function ItemChips({
