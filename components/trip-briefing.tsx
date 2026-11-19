@@ -1,34 +1,24 @@
 "use client";
 
-import IosShareIcon from "@mui/icons-material/IosShare";
 import PrintIcon from "@mui/icons-material/Print";
 import Box from "@mui/material/Box";
-import Button from "@mui/material/Button";
-import Dialog from "@mui/material/Dialog";
-import DialogActions from "@mui/material/DialogActions";
-import DialogContent from "@mui/material/DialogContent";
-import DialogTitle from "@mui/material/DialogTitle";
 import IconButton from "@mui/material/IconButton";
-import { useState } from "react";
+import type { ReactNode } from "react";
 import { SectionAccordion } from "@/components/section-accordion";
 import { CarsBody, CongregationsBody, FlightsBody, InsuranceBody, StaysBody } from "@/components/section-bodies";
-import { SharePanel } from "@/components/share-panel";
 import { TitleChrome } from "@/components/title-chrome";
 import { travelReturnLabel } from "@/lib/format";
-import type { Member, ShareLinkInfo, TripBundle } from "@/lib/types";
+import type { TripBundle } from "@/lib/types";
 
 export function TripBriefing({
   bundle,
   mode,
-  shareLinks = [],
-  members = [],
+  ownerTools = null,
 }: {
   bundle: TripBundle;
   mode: "owner" | "collaborator" | "guest";
-  shareLinks?: ShareLinkInfo[];
-  members?: Member[];
+  ownerTools?: ReactNode;
 }) {
-  const [shareOpen, setShareOpen] = useState(false);
   const { trip } = bundle;
   const editable = mode !== "guest";
 
@@ -47,11 +37,7 @@ export function TripBriefing({
                   <PrintIcon />
                 </IconButton>
               ) : null}
-              {mode === "owner" ? (
-                <IconButton aria-label="Share trip" onClick={() => setShareOpen(true)}>
-                  <IosShareIcon />
-                </IconButton>
-              ) : null}
+              {mode === "owner" ? ownerTools : null}
             </>
           )
         }
@@ -76,9 +62,11 @@ export function TripBriefing({
         >
           <StaysBody stays={bundle.stays} />
         </SectionAccordion>
-        <SectionAccordion title="Insurance" editHref={editable ? `/trips/${trip.id}/edit?step=insurance` : undefined}>
-          <InsuranceBody insurance={bundle.insurance} documents={bundle.insuranceDocuments} />
-        </SectionAccordion>
+        {mode === "guest" ? null : (
+          <SectionAccordion title="Insurance" editHref={editable ? `/trips/${trip.id}/edit?step=insurance` : undefined}>
+            <InsuranceBody insurance={bundle.insurance} documents={bundle.insuranceDocuments} />
+          </SectionAccordion>
+        )}
         <SectionAccordion
           title="Congregations"
           editHref={editable ? `/trips/${trip.id}/edit?step=congregations` : undefined}
@@ -86,17 +74,6 @@ export function TripBriefing({
           <CongregationsBody congregations={bundle.congregations} />
         </SectionAccordion>
       </Box>
-      {mode === "owner" ? (
-        <Dialog open={shareOpen} onClose={() => setShareOpen(false)} fullWidth maxWidth="xs">
-          <DialogTitle>Share trip</DialogTitle>
-          <DialogContent>
-            {shareOpen ? <SharePanel tripId={trip.id} links={shareLinks} members={members} /> : null}
-          </DialogContent>
-          <DialogActions>
-            <Button onClick={() => setShareOpen(false)}>Close</Button>
-          </DialogActions>
-        </Dialog>
-      ) : null}
     </>
   );
 }

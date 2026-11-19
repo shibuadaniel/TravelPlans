@@ -2,6 +2,7 @@ import { SignJWT, jwtVerify } from "jose";
 
 export const USER_COOKIE = "session";
 export const GUEST_COOKIE = "guest_trip";
+export const GUEST_PIN_COOKIE = "guest_pin";
 
 function secret() {
   const value = process.env.SESSION_SECRET;
@@ -41,11 +42,11 @@ export async function verifyUserToken(token: string | undefined) {
   }
 }
 
-export async function signGuestToken(tripId: string, shareId: string) {
-  return new SignJWT({ typ: "guest", tripId, shareId })
+export async function signGuestToken(tripId: string, shareId: string, gate: number) {
+  return new SignJWT({ typ: "guest", tripId, shareId, gate })
     .setProtectedHeader({ alg: "HS256" })
     .setIssuedAt()
-    .setExpirationTime("30d")
+    .setExpirationTime("7d")
     .sign(secret());
 }
 
@@ -54,9 +55,30 @@ export async function verifyGuestToken(token: string | undefined) {
   try {
     const { payload } = await jwtVerify(token, secret());
     if (payload.typ !== "guest") return null;
-    const { tripId, shareId } = payload;
-    if (typeof tripId !== "string" || typeof shareId !== "string") return null;
-    return { tripId, shareId };
+    const { tripId, shareId, gate } = payload;
+    if (typeof tripId !== "string" || typeof shareId !== "string" || typeof gate !== "number") return null;
+    return { tripId, shareId, gate };
+  } catch {
+    return null;
+  }
+}
+
+export async function signGuestPinToken(tripId: string, shareId: string, gate: number) {
+  return new SignJWT({ typ: "guest-pin", tripId, shareId, gate })
+    .setProtectedHeader({ alg: "HS256" })
+    .setIssuedAt()
+    .setExpirationTime("10m")
+    .sign(secret());
+}
+
+export async function verifyGuestPinToken(token: string | undefined) {
+  if (!token || !process.env.SESSION_SECRET) return null;
+  try {
+    const { payload } = await jwtVerify(token, secret());
+    if (payload.typ !== "guest-pin") return null;
+    const { tripId, shareId, gate } = payload;
+    if (typeof tripId !== "string" || typeof shareId !== "string" || typeof gate !== "number") return null;
+    return { tripId, shareId, gate };
   } catch {
     return null;
   }

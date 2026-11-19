@@ -1,14 +1,14 @@
 import { NextResponse } from "next/server";
-import { canReadTrip, getCurrentUser, readGuestSession } from "@/lib/current";
-import { getInsuranceFile } from "@/lib/data";
+import { getCurrentUser, readGuestSession } from "@/lib/current";
+import { getInsuranceFile, getRole } from "@/lib/data";
 import { readStoredFile } from "@/lib/uploads";
 
 export async function GET(_request: Request, context: { params: Promise<{ docId: string }> }) {
   const { docId } = await context.params;
   const file = await getInsuranceFile(docId);
   if (!file) return new NextResponse("Not found", { status: 404 });
-  if (!(await canReadTrip(file.trip_id))) {
-    const user = await getCurrentUser();
+  const user = await getCurrentUser();
+  if (!user || !(await getRole(user.id, file.trip_id))) {
     const guest = await readGuestSession();
     const status = user || guest ? 403 : 401;
     return new NextResponse(status === 401 ? "Unauthorized" : "Forbidden", { status });

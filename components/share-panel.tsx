@@ -8,6 +8,8 @@ import Divider from "@mui/material/Divider";
 import Stack from "@mui/material/Stack";
 import TextField from "@mui/material/TextField";
 import Typography from "@mui/material/Typography";
+import Link from "@mui/material/Link";
+import NextLink from "next/link";
 import { useState } from "react";
 import { ConfirmDialog } from "@/components/confirm-dialog";
 import {
@@ -24,10 +26,12 @@ export function SharePanel({
   tripId,
   links,
   members,
+  pinReady,
 }: {
   tripId: string;
   links: ShareLinkInfo[];
   members: Member[];
+  pinReady: boolean;
 }) {
   const [items, setItems] = useState(links);
   const [people, setPeople] = useState(members);
@@ -120,8 +124,17 @@ export function SharePanel({
   return (
     <Stack spacing={1.5}>
       <Typography variant="body2" color="text.secondary">
-        Family opens this link with no account. The raw link is shown only once.
+        Family opens this link with no account, then enters your PIN. The same PIN covers every trip. Change it on Account if it leaks. That signs out anyone who already opened a link. The raw link is shown only once.
       </Typography>
+      {pinReady ? null : (
+        <Alert severity="info">
+          Set a share PIN on your{" "}
+          <Link component={NextLink} href="/account">
+            account
+          </Link>{" "}
+          before a link will open.
+        </Alert>
+      )}
       {error ? <Alert severity="error">{error}</Alert> : null}
       {freshUrl ? (
         <Box>
@@ -139,11 +152,11 @@ export function SharePanel({
         </Box>
       ) : null}
       <Stack direction="row" spacing={1} useFlexGap sx={{ flexWrap: "wrap" }}>
-        <Button variant="contained" disabled={pending} onClick={() => void create()}>
+        <Button variant="contained" disabled={pending || !pinReady} onClick={() => void create()}>
           Create share link
         </Button>
         {items.some((link) => !link.revokedAt) ? (
-          <Button variant="outlined" disabled={pending} onClick={() => setConfirm("rotate")}>
+          <Button variant="outlined" disabled={pending || !pinReady} onClick={() => setConfirm("rotate")}>
             Rotate link
           </Button>
         ) : null}

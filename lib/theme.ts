@@ -34,6 +34,16 @@ export const theme = createTheme({
     MuiIconButton: { defaultProps: { size: "small" } },
     MuiTextField: { defaultProps: { size: "small", fullWidth: true } },
     MuiFormControl: { defaultProps: { size: "small", fullWidth: true } },
+    MuiOutlinedInput: {
+      styleOverrides: {
+        root: {
+          ".MuiFormControl-root:has(.MuiInputLabel-shrink) & .MuiOutlinedInput-notchedOutline legend": {
+            width: "fit-content !important",
+            maxWidth: "100% !important",
+          },
+        },
+      },
+    },
     MuiInputBase: {
       styleOverrides: {
         input: { textAlign: "left" },

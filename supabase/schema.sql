@@ -6,7 +6,9 @@ create table if not exists public.users (
   email text not null unique,
   name text not null default '',
   onboarded_at text,
-  created_at text not null
+  created_at text not null,
+  pin_hash text,
+  share_gate integer not null default 0
 );
 
 create table if not exists public.trips (

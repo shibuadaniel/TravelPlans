@@ -1,4 +1,5 @@
 export type Role = "owner" | "collaborator";
+export type TripRole = Role | "guest";
 
 export type User = {
   id: string;
@@ -13,7 +14,7 @@ export type Trip = {
   travelDate: string | null;
   returnDate: string | null;
   notes: string;
-  role: Role;
+  role: TripRole;
 };
 
 export type PlacePhoto = {

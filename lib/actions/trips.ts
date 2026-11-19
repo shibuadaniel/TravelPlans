@@ -11,6 +11,7 @@ import {
   getRole,
   insertBlankTrip,
   listShareLinks,
+  userHasSharePin,
   listMembers,
   removeCollaborator,
   revokeShare,
@@ -219,6 +220,9 @@ export async function createShareAction(
 ): Promise<Result<{ url: string; links: ShareLinkInfo[] }>> {
   const access = await ownerShare(tripId);
   if (!access.ok) return access;
+  if (!(await userHasSharePin(access.userId))) {
+    return { ok: false, error: "Set a share PIN on your account before creating a link." };
+  }
   const token = await createShare(tripId);
   revalidateTrip(tripId);
   return {
@@ -232,6 +236,9 @@ export async function rotateShareAction(
 ): Promise<Result<{ url: string; links: ShareLinkInfo[] }>> {
   const access = await ownerShare(tripId);
   if (!access.ok) return access;
+  if (!(await userHasSharePin(access.userId))) {
+    return { ok: false, error: "Set a share PIN on your account before rotating a link." };
+  }
   const token = await rotateShare(tripId);
   revalidateTrip(tripId);
   return {

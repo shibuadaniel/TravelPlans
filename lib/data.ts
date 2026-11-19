@@ -12,6 +12,7 @@ import type {
   InsuranceDocument,
   Member,
   Role,
+  TripRole,
   ShareLinkInfo,
   Stay,
   Trip,
@@ -61,6 +62,42 @@ function mapUser(row: UserRow): User {
     name: row.name,
     onboardedAt: row.onboarded_at,
   };
+}
+
+let pinColumnsReady: Promise<void> | null = null;
+
+function ensureSharePinColumns() {
+  pinColumnsReady ??= (async () => {
+    await dbRun("ALTER TABLE users ADD COLUMN IF NOT EXISTS pin_hash text");
+    await dbRun("ALTER TABLE users ADD COLUMN IF NOT EXISTS share_gate integer NOT NULL DEFAULT 0");
+  })().catch((error) => {
+    pinColumnsReady = null;
+    throw error;
+  });
+  return pinColumnsReady;
+}
+
+export async function userHasSharePin(userId: string) {
+  await ensureSharePinColumns();
+  const row = await dbGet<{ pin_hash: string | null }>("SELECT pin_hash FROM users WHERE id = ?", userId);
+  return Boolean(row?.pin_hash);
+}
+
+export async function saveSharePin(userId: string, pinHash: string) {
+  await ensureSharePinColumns();
+  await dbRun("UPDATE users SET pin_hash = ?, share_gate = share_gate + 1 WHERE id = ?", pinHash, userId);
+}
+
+export async function tripSharePin(tripId: string) {
+  await ensureSharePinColumns();
+  const row = await dbGet<{ pin_hash: string | null; share_gate: number | string }>(
+    `SELECT u.pin_hash, u.share_gate
+     FROM trips t JOIN users u ON u.id = t.owner_user_id
+     WHERE t.id = ?`,
+    tripId,
+  );
+  if (!row?.pin_hash) return null;
+  return { pinHash: row.pin_hash, gate: Number(row.share_gate) };
 }
 
 export async function findUserById(id: string) {
@@ -259,9 +296,21 @@ function mapCongregation(row: {
   };
 }
 
-export async function getBundle(tripId: string, role: Role): Promise<TripBundle | null> {
+const emptyInsurance: Insurance = {
+  provider: "",
+  policyNumber: "",
+  phone: "",
+  coverageStart: null,
+  coverageEnd: null,
+  claimNotes: "",
+};
+
+export async function getBundle(tripId: string, role: TripRole): Promise<TripBundle | null> {
+  const guest = role === "guest";
   const trip = await dbGet<TripRow>(
-    "SELECT id, destination, travel_date, return_date, notes FROM trips WHERE id = ?",
+    guest
+      ? "SELECT id, destination, travel_date, return_date, '' AS notes FROM trips WHERE id = ?"
+      : "SELECT id, destination, travel_date, return_date, notes FROM trips WHERE id = ?",
     tripId,
   );
   if (!trip) return null;
@@ -285,18 +334,20 @@ export async function getBundle(tripId: string, role: Role): Promise<TripBundle 
      FROM congregations WHERE trip_id = ? ORDER BY sort_order, created_at`,
     tripId,
   )).map(mapCongregation);
-  const insuranceRow = await dbGet<{
-    provider: string;
-    policy_number: string;
-    phone: string;
-    coverage_start: string | null;
-    coverage_end: string | null;
-    claim_notes: string;
-  }>(
-    `SELECT provider, policy_number, phone, coverage_start, coverage_end, claim_notes
-     FROM insurance WHERE trip_id = ?`,
-    tripId,
-  );
+  const insuranceRow = guest
+    ? null
+    : await dbGet<{
+        provider: string;
+        policy_number: string;
+        phone: string;
+        coverage_start: string | null;
+        coverage_end: string | null;
+        claim_notes: string;
+      }>(
+        `SELECT provider, policy_number, phone, coverage_start, coverage_end, claim_notes
+         FROM insurance WHERE trip_id = ?`,
+        tripId,
+      );
   const insurance: Insurance = insuranceRow
     ? {
         provider: insuranceRow.provider,
@@ -306,15 +357,10 @@ export async function getBundle(tripId: string, role: Role): Promise<TripBundle 
         coverageEnd: insuranceRow.coverage_end,
         claimNotes: insuranceRow.claim_notes,
       }
-    : {
-        provider: "",
-        policyNumber: "",
-        phone: "",
-        coverageStart: null,
-        coverageEnd: null,
-        claimNotes: "",
-      };
-  const insuranceDocuments = (await dbAll<{
+    : emptyInsurance;
+  const insuranceDocuments = guest
+    ? []
+    : (await dbAll<{
     id: string;
     document_name: string;
     document_mime: string;
@@ -354,11 +400,16 @@ export async function saveOverview(
 ) {
   const destination = text(input.destination, 200);
   if (!destination) throw new Error("Enter where you are going.");
+  const travelDate = dateOnly(input.travelDate);
+  const returnDate = dateOnly(input.returnDate);
+  if (travelDate && returnDate && returnDate < travelDate) {
+    throw new Error("The return date must be on or after the travel date.");
+  }
   await dbRun(
     `UPDATE trips SET destination = ?, travel_date = ?, return_date = ?, notes = ?, updated_at = ? WHERE id = ?`,
     destination,
-    dateOnly(input.travelDate),
-    dateOnly(input.returnDate),
+    travelDate,
+    returnDate,
     text(input.notes, 5000),
     now(),
     tripId,
@@ -779,14 +830,17 @@ export async function listShareLinks(tripId: string): Promise<ShareLinkInfo[]> {
   return [active, revoked].filter((row) => row !== undefined).map(toShareLink);
 }
 
-export async function redeemShare(token: string) {
+export async function findActiveShare(token: string) {
   const row = await dbGet<{ id: string; trip_id: string }>(
     "SELECT id, trip_id FROM share_links WHERE token_hash = ? AND revoked_at IS NULL",
     hashToken(token.trim()),
   );
   if (!row) return null;
-  await dbRun("UPDATE share_links SET last_used_at = ? WHERE id = ?", now(), row.id);
   return { id: row.id, tripId: row.trip_id };
+}
+
+export async function markShareUsed(shareId: string) {
+  await dbRun("UPDATE share_links SET last_used_at = ? WHERE id = ?", now(), shareId);
 }
 
 export async function shareIsActive(shareId: string, tripId: string) {

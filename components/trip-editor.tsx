@@ -48,11 +48,13 @@ export function TripEditor({
   initialStep,
   shareLinks,
   members,
+  pinReady,
 }: {
   bundle: TripBundle;
   initialStep: EditStep;
   shareLinks: ShareLinkInfo[];
   members: Member[];
+  pinReady: boolean;
 }) {
   const role = bundle.trip.role;
   const [overviewSaved, setOverviewSaved] = useState(bundle.trip.destination.trim().length > 0);
@@ -296,7 +298,7 @@ export function TripEditor({
             expanded={expanded === "share"}
             onChange={(open) => setExpanded(open ? "share" : false)}
           >
-            <SharePanel tripId={bundle.trip.id} links={shareLinks} members={members} />
+            <SharePanel tripId={bundle.trip.id} links={shareLinks} members={members} pinReady={pinReady} />
           </SectionAccordion>
         ) : null}
       </Box>

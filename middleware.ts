@@ -7,6 +7,7 @@ function isPublic(pathname: string) {
     pathname === "/privacy" ||
     pathname === "/terms" ||
     pathname === "/api/csp-report" ||
+    pathname === "/robots.txt" ||
     pathname.startsWith("/auth") ||
     pathname.startsWith("/s/") ||
     pathname.startsWith("/guest") ||
@@ -24,6 +25,10 @@ export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
   const { response, userId } = await updateSession(request, requestHeaders);
   applyCsp(response, csp);
+  if (pathname.startsWith("/guest") || pathname.startsWith("/s/") || pathname === "/s") {
+    response.headers.set("X-Robots-Tag", "noindex, nofollow");
+    response.headers.set("Cache-Control", "private, no-store");
+  }
 
   if (pathname.startsWith("/auth") && userId) {
     const redirect = NextResponse.redirect(new URL("/", request.url));

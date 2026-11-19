@@ -1,17 +1,21 @@
 import { NextResponse, type NextRequest } from "next/server";
-import { cookieOptions, GUEST_COOKIE, signGuestToken } from "@/lib/auth-token";
-import { redeemShare } from "@/lib/data";
+import { cookieOptions, GUEST_PIN_COOKIE, signGuestPinToken } from "@/lib/auth-token";
+import { findActiveShare, tripSharePin } from "@/lib/data";
 
-const MONTH = 60 * 60 * 24 * 30;
+const TEN_MINUTES = 60 * 10;
 
 export async function GET(request: NextRequest, context: { params: Promise<{ token: string }> }) {
   const { token } = await context.params;
-  const share = await redeemShare(token);
+  const share = await findActiveShare(token);
   if (!share) {
     return NextResponse.redirect(new URL("/s/invalid", request.url));
   }
-  const jwt = await signGuestToken(share.tripId, share.id);
-  const response = NextResponse.redirect(new URL(`/guest/${share.tripId}`, request.url));
-  response.cookies.set(GUEST_COOKIE, jwt, cookieOptions(MONTH));
+  const pin = await tripSharePin(share.tripId);
+  if (!pin) {
+    return NextResponse.redirect(new URL("/guest/locked", request.url));
+  }
+  const jwt = await signGuestPinToken(share.tripId, share.id, pin.gate);
+  const response = NextResponse.redirect(new URL("/guest/pin", request.url));
+  response.cookies.set(GUEST_PIN_COOKIE, jwt, cookieOptions(TEN_MINUTES));
   return response;
 }

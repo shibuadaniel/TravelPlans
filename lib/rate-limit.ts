@@ -61,3 +61,36 @@ export async function assertAuthAttemptAllowed(email: string) {
   await dbRun("INSERT INTO auth_attempts (id, attempt_key, created_at) VALUES (?, ?, ?)", crypto.randomUUID(), emailKey, stamp);
   return { ok: true as const };
 }
+
+const PIN_WINDOW_MS = 15 * 60 * 1000;
+const PIN_MAX_ATTEMPTS = 5;
+
+async function sharePinKeys(shareId: string) {
+  await ensureTable();
+  const cutoff = new Date(Date.now() - PIN_WINDOW_MS).toISOString();
+  await dbRun("DELETE FROM auth_attempts WHERE created_at < ?", cutoff);
+  const ipKey = hashKey(`pin-ip:${await clientAddress()}`);
+  const shareKey = hashKey(`pin-share:${shareId}`);
+  const [byIp, byShare] = await Promise.all([countRecent(ipKey, cutoff), countRecent(shareKey, cutoff)]);
+  return { byIp, byShare, ipKey, shareKey };
+}
+
+export async function assertSharePinAllowed(shareId: string) {
+  const counts = await sharePinKeys(shareId);
+  if (counts.byIp >= PIN_MAX_ATTEMPTS || counts.byShare >= PIN_MAX_ATTEMPTS) {
+    return { ok: false as const, error: "Too many attempts. Try again in a few minutes." };
+  }
+  return { ok: true as const };
+}
+
+export async function recordSharePinFailure(shareId: string) {
+  const counts = await sharePinKeys(shareId);
+  const stamp = new Date().toISOString();
+  await dbRun("INSERT INTO auth_attempts (id, attempt_key, created_at) VALUES (?, ?, ?)", crypto.randomUUID(), counts.ipKey, stamp);
+  await dbRun(
+    "INSERT INTO auth_attempts (id, attempt_key, created_at) VALUES (?, ?, ?)",
+    crypto.randomUUID(),
+    counts.shareKey,
+    stamp,
+  );
+}
