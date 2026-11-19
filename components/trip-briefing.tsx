@@ -29,6 +29,7 @@ export function TripBriefing({
         backLabel="Back"
         title={trip.destination}
         subtitle={travelReturnLabel(trip.travelDate, trip.returnDate)}
+        avatarSrc={`/api/avatar?trip=${trip.id}`}
         actions={
           mode === "guest" ? null : (
             <>

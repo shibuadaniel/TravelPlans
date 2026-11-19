@@ -5,6 +5,7 @@ import Box from "@mui/material/Box";
 import IconButton from "@mui/material/IconButton";
 import Typography from "@mui/material/Typography";
 import Link from "next/link";
+import { ProfilePhoto } from "@/components/profile-photo";
 import { displayDestination } from "@/lib/format";
 
 export function TitleChrome({
@@ -13,12 +14,14 @@ export function TitleChrome({
   title,
   subtitle,
   actions,
+  avatarSrc,
 }: {
   backHref?: string;
   backLabel?: string;
   title: string;
   subtitle?: string;
   actions?: React.ReactNode;
+  avatarSrc?: string;
 }) {
   return (
     <Box
@@ -49,6 +52,7 @@ export function TitleChrome({
       ) : (
         <Box sx={{ width: 8 }} />
       )}
+      {avatarSrc !== undefined ? <ProfilePhoto src={avatarSrc || undefined} size={44} /> : null}
       <Box sx={{ flex: 1, minWidth: 0 }}>
         <Typography
           variant="h4"
