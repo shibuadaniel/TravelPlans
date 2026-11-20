@@ -201,24 +201,24 @@ export function SharePanel({
             </Typography>
           )}
           {items.map((link) => (
-            <Box
-              key={link.id}
-              sx={{ display: "flex", alignItems: "center", gap: 1, borderTop: 1, borderColor: "divider", pt: 1 }}
-            >
-              <Box sx={{ flex: 1, minWidth: 0 }}>
-                <Typography variant="body2">
-                  {link.revokedAt ? `Revoked ${formatDateTime(link.revokedAt)}` : `Created ${formatDateTime(link.createdAt)}`}
-                </Typography>
-                <Typography variant="caption" color="text.secondary">
-                  {link.revokedAt
-                    ? `Created ${formatDateTime(link.createdAt)}`
-                    : link.lastUsedAt
-                      ? `Last opened ${formatDateTime(link.lastUsedAt)}`
-                      : "Not opened yet"}
-                </Typography>
-              </Box>
+            <Box key={link.id} sx={{ borderTop: 1, borderColor: "divider", pt: 1 }}>
+              <Typography variant="body2">
+                {link.revokedAt ? `Revoked ${formatDateTime(link.revokedAt)}` : `Created ${formatDateTime(link.createdAt)}`}
+              </Typography>
+              <Typography variant="caption" color="text.secondary" component="div">
+                {link.revokedAt
+                  ? `Created ${formatDateTime(link.createdAt)}`
+                  : link.lastUsedAt
+                    ? `Last opened ${formatDateTime(link.lastUsedAt)}`
+                    : "Not opened yet"}
+              </Typography>
               {link.revokedAt ? null : (
-                <Button color="error" disabled={pending} onClick={() => setConfirm({ type: "revoke", id: link.id })}>
+                <Button
+                  color="error"
+                  disabled={pending}
+                  onClick={() => setConfirm({ type: "revoke", id: link.id })}
+                  sx={{ mt: 0.5, px: 0, minWidth: 0, justifyContent: "flex-start" }}
+                >
                   Revoke
                 </Button>
               )}
