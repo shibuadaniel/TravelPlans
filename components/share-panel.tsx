@@ -168,7 +168,7 @@ export function SharePanel({
       <SectionAccordion title="Share link" defaultExpanded>
         <Stack spacing={1.5}>
           <Typography variant="body2" color="text.secondary">
-            Add each email that may open this link. They also enter your PIN, then save a passkey on that device. The same PIN covers every trip. Change it on Account if it leaks. That signs out anyone who already opened a link. The link is shown only once.
+            Add each email that may open this link. The first time, they enter your PIN and must save a passkey. That device uses the passkey after that. The same PIN covers every trip. Change it on Account if it leaks. That signs out anyone who already opened a link. The link is shown only once.
           </Typography>
           {freshUrl ? (
             <Box>
@@ -230,7 +230,7 @@ export function SharePanel({
       <SectionAccordion title="Emails that can open the link">
         <Stack spacing={1.5}>
           <Typography variant="body2" color="text.secondary">
-            Only these addresses can enter the PIN. A new phone can use the email and PIN, then save its own passkey.
+            Only these addresses can enter the PIN. A new phone can use the email and PIN, then save its own passkey. A phone that already saved one is asked only for that passkey.
           </Typography>
           <Stack direction={{ xs: "column", sm: "row" }} spacing={1}>
             <TextField

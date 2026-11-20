@@ -10,21 +10,59 @@ import Stack from "@mui/material/Stack";
 import TextField from "@mui/material/TextField";
 import Typography from "@mui/material/Typography";
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { PinField } from "@/components/pin-field";
 import { ProfilePhoto } from "@/components/profile-photo";
 import { submitSharePin } from "@/lib/actions/share-pin";
 import { safeInternalPath } from "@/lib/format";
 
 type PasskeyOptions = PublicKeyCredentialCreationOptionsJSON | PublicKeyCredentialRequestOptionsJSON;
+type DevicePasskey = "unknown" | "saved" | "new";
 
-export function GuestPinForm({ hasPhoto = false, needsPasskey = false }: { hasPhoto?: boolean; needsPasskey?: boolean }) {
+function passkeyStorageKey(tripId: string) {
+  return `where-are-we-passkey:${tripId}`;
+}
+
+function rememberPasskey(tripId: string) {
+  try {
+    localStorage.setItem(passkeyStorageKey(tripId), "1");
+  } catch {
+    // Private browsing can block storage. The passkey itself still opens the trip.
+  }
+}
+
+function forgetPasskey(tripId: string) {
+  try {
+    localStorage.removeItem(passkeyStorageKey(tripId));
+  } catch {
+    // Ignore storage failures. The email and PIN form is the fallback.
+  }
+}
+
+export function GuestPinForm({
+  tripId,
+  hasPhoto = false,
+  needsPasskey = false,
+}: {
+  tripId: string;
+  hasPhoto?: boolean;
+  needsPasskey?: boolean;
+}) {
   const router = useRouter();
   const [email, setEmail] = useState("");
   const [pin, setPin] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
   const [savePasskey, setSavePasskey] = useState(needsPasskey);
+  const [device, setDevice] = useState<DevicePasskey>("unknown");
+
+  useEffect(() => {
+    try {
+      setDevice(localStorage.getItem(passkeyStorageKey(tripId)) === "1" ? "saved" : "new");
+    } catch {
+      setDevice("new");
+    }
+  }, [tripId]);
 
   function openTrip(href: string) {
     router.push(safeInternalPath(href, "/"));
@@ -64,6 +102,7 @@ export function GuestPinForm({ hasPhoto = false, needsPasskey = false }: { hasPh
         setError(result.error);
         return;
       }
+      rememberPasskey(tripId);
       openTrip(result.href);
     } catch (caught) {
       setPending(false);
@@ -93,14 +132,20 @@ export function GuestPinForm({ hasPhoto = false, needsPasskey = false }: { hasPh
       const result = await readPasskey("/api/passkey/login", credential);
       setPending(false);
       if (!result.ok) {
+        if (result.error === "Enter your email and PIN on this device.") {
+          forgetPasskey(tripId);
+          setDevice("new");
+          setSavePasskey(false);
+        }
         setError(result.error);
         return;
       }
+      rememberPasskey(tripId);
       openTrip(result.href);
     } catch (caught) {
       setPending(false);
       const name = caught instanceof Error ? caught.name : "";
-      setError(name === "NotAllowedError" ? "Enter your email and PIN on this device." : "This browser could not use a passkey.");
+      setError(name === "NotAllowedError" ? "Use the passkey on this device to open the trip." : "This browser could not use a passkey.");
     }
   }
 
@@ -121,7 +166,11 @@ export function GuestPinForm({ hasPhoto = false, needsPasskey = false }: { hasPh
       <Stack
         component="form"
         spacing={1.5}
-        onSubmit={(event) => { event.preventDefault(); void submit(); }}
+        onSubmit={(event) => {
+          event.preventDefault();
+          if (savePasskey || device === "saved") return;
+          void submit();
+        }}
         sx={{
           width: "100%",
           maxWidth: 360,
@@ -138,17 +187,25 @@ export function GuestPinForm({ hasPhoto = false, needsPasskey = false }: { hasPh
             Where are we?
           </Typography>
         </Box>
-        <Typography variant="body2" color="text.secondary">
-          {savePasskey
-            ? "Save a passkey on this device to open the trip."
-            : "Enter the email and PIN from the person who sent this link."}
-        </Typography>
+        {savePasskey || device !== "unknown" ? (
+          <Typography variant="body2" color="text.secondary">
+            {savePasskey
+              ? "Save a passkey on this device to open the trip."
+              : device === "saved"
+                ? "Use the passkey saved on this device."
+                : "Enter the email and PIN from the person who sent this link."}
+          </Typography>
+        ) : null}
         {error ? <Alert severity="error">{error}</Alert> : null}
         {savePasskey ? (
           <Button type="button" variant="contained" disabled={pending} onClick={() => void registerPasskey()}>
             {pending ? "Waiting…" : "Save passkey"}
           </Button>
-        ) : (
+        ) : device === "saved" ? (
+          <Button type="button" variant="contained" disabled={pending} onClick={() => void usePasskey()}>
+            {pending ? "Waiting…" : "Use a saved passkey"}
+          </Button>
+        ) : device === "new" ? (
           <>
             <TextField
               label="Email"
@@ -162,15 +219,10 @@ export function GuestPinForm({ hasPhoto = false, needsPasskey = false }: { hasPh
             <Button type="submit" variant="contained" disabled={pending}>
               {pending ? "Checking…" : "Continue"}
             </Button>
+            <Button type="button" variant="text" disabled={pending} onClick={() => void usePasskey()}>
+              Use a saved passkey
+            </Button>
           </>
-        )}
-        <Button type="button" variant="text" disabled={pending} onClick={() => void usePasskey()}>
-          Use a saved passkey
-        </Button>
-        {savePasskey ? (
-          <Button type="button" variant="text" disabled={pending} onClick={() => setSavePasskey(false)}>
-            Use email and PIN instead
-          </Button>
         ) : null}
       </Stack>
     </Box>

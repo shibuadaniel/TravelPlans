@@ -12,5 +12,5 @@ export default async function GuestPinPage() {
   if (!pending) return <InvalidShare />;
   const enroll = await verifyGuestEnrollToken(jar.get(GUEST_ENROLL_COOKIE)?.value);
   const photo = await tripOwnerAvatar(pending.tripId);
-  return <GuestPinForm hasPhoto={Boolean(photo)} needsPasskey={Boolean(enroll)} />;
+  return <GuestPinForm tripId={pending.tripId} hasPhoto={Boolean(photo)} needsPasskey={Boolean(enroll)} />;
 }
