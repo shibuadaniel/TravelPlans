@@ -1,7 +1,7 @@
 "use server";
 
 import { getCurrentUser } from "@/lib/current";
-import { clearUserAvatar, deleteOwnedTrips, deleteUserProfile, getBundle, listMembers, listShareLinks, listTripsForUser, replaceUserAvatar, userAvatar } from "@/lib/data";
+import { clearUserAvatar, deleteOwnedTrips, deleteUserProfile, getBundle, listGuestEmails, listMembers, listShareLinks, listTripsForUser, replaceUserAvatar, userAvatar } from "@/lib/data";
 import { createClient, createServiceRoleClient } from "@/lib/supabase/server";
 import { removeStoredFile, storeAvatar } from "@/lib/uploads";
 import type { Result } from "@/lib/types";
@@ -18,6 +18,7 @@ export async function exportAccount(): Promise<Result<{ filename: string; body: 
       ...bundle,
       shareLinks: item.role === "owner" ? await listShareLinks(item.id) : [],
       members: item.role === "owner" ? await listMembers(item.id) : [],
+      guestEmails: item.role === "owner" ? await listGuestEmails(item.id) : [],
     });
   }
   const body = JSON.stringify(

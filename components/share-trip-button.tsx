@@ -16,11 +16,13 @@ export function ShareTripButton({
   links,
   members,
   pinReady,
+  guestEmails,
 }: {
   tripId: string;
   links: ShareLinkInfo[];
   members: Member[];
   pinReady: boolean;
+  guestEmails: string[];
 }) {
   const [open, setOpen] = useState(false);
 
@@ -32,7 +34,9 @@ export function ShareTripButton({
       <Dialog open={open} onClose={() => setOpen(false)} fullWidth maxWidth="xs">
         <DialogTitle>Share trip</DialogTitle>
         <DialogContent>
-          {open ? <SharePanel tripId={tripId} links={links} members={members} pinReady={pinReady} /> : null}
+          {open ? (
+            <SharePanel tripId={tripId} links={links} members={members} pinReady={pinReady} guestEmails={guestEmails} />
+          ) : null}
         </DialogContent>
         <DialogActions>
           <Button onClick={() => setOpen(false)}>Close</Button>

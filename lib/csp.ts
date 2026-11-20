@@ -9,9 +9,11 @@ export function supabaseOrigin() {
 }
 
 export function contentSecurityPolicy(nonce: string) {
+  // Next's dev server compiles client code with eval(). Production builds do not.
+  const devEval = process.env.NODE_ENV === "development" ? " 'unsafe-eval'" : "";
   return [
     "default-src 'self'",
-    `script-src 'self' 'nonce-${nonce}' 'strict-dynamic'`,
+    `script-src 'self' 'nonce-${nonce}' 'strict-dynamic'${devEval}`,
     "style-src 'self' 'unsafe-inline'",
     "img-src 'self' data: https://upload.wikimedia.org https://thumb.wikimedia.org",
     "font-src 'self'",

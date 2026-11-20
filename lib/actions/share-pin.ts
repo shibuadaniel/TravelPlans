@@ -1,14 +1,14 @@
 "use server";
 
 import { cookies } from "next/headers";
-import { cookieOptions, GUEST_COOKIE, GUEST_PIN_COOKIE, signGuestToken, verifyGuestPinToken } from "@/lib/auth-token";
+import { cookieOptions, GUEST_ENROLL_COOKIE, GUEST_PIN_COOKIE, signGuestEnrollToken, verifyGuestPinToken } from "@/lib/auth-token";
 import { getCurrentUser } from "@/lib/current";
-import { markShareUsed, saveSharePin, shareIsActive, tripSharePin } from "@/lib/data";
+import { guestEmailAllowed, normalizeGuestEmail, saveSharePin, shareIsActive, tripSharePin } from "@/lib/data";
 import { hashPin, normalizePin, verifyPin } from "@/lib/pin";
 import { assertSharePinAllowed, recordSharePinFailure } from "@/lib/rate-limit";
 import type { Result } from "@/lib/types";
 
-const WEEK = 60 * 60 * 24 * 7;
+const TEN_MINUTES = 60 * 10;
 
 export async function setSharePin(pin: string, confirmation: string): Promise<Result<{ saved: true }>> {
   const user = await getCurrentUser();
@@ -21,7 +21,7 @@ export async function setSharePin(pin: string, confirmation: string): Promise<Re
   return { ok: true, data: { saved: true } };
 }
 
-export async function submitSharePin(pin: string): Promise<Result<{ href: string }>> {
+export async function submitSharePin(email: string, pin: string): Promise<Result<{ step: "passkey" }>> {
   const pending = await verifyGuestPinToken((await cookies()).get(GUEST_PIN_COOKIE)?.value);
   if (!pending) return { ok: false, error: "Open the share link again." };
   if (!(await shareIsActive(pending.shareId, pending.tripId))) {
@@ -33,15 +33,15 @@ export async function submitSharePin(pin: string): Promise<Result<{ href: string
   }
   const allowed = await assertSharePinAllowed(pending.shareId);
   if (!allowed.ok) return allowed;
+  const normalized = normalizeGuestEmail(email);
   const entered = normalizePin(pin);
-  if (!entered || !verifyPin(entered, record.pinHash)) {
+  const emailOk = normalized ? await guestEmailAllowed(pending.tripId, normalized) : false;
+  const pinOk = Boolean(entered && verifyPin(entered, record.pinHash));
+  if (!emailOk || !pinOk || !normalized) {
     await recordSharePinFailure(pending.shareId);
-    return { ok: false, error: "That PIN is incorrect." };
+    return { ok: false, error: "That email or PIN is incorrect." };
   }
-  const jwt = await signGuestToken(pending.tripId, pending.shareId, record.gate);
-  const cookieStore = await cookies();
-  cookieStore.set(GUEST_COOKIE, jwt, cookieOptions(WEEK));
-  cookieStore.set(GUEST_PIN_COOKIE, "", cookieOptions(0));
-  await markShareUsed(pending.shareId);
-  return { ok: true, data: { href: `/guest/${pending.tripId}` } };
+  const enroll = await signGuestEnrollToken(pending.tripId, pending.shareId, record.gate, normalized);
+  (await cookies()).set(GUEST_ENROLL_COOKIE, enroll, cookieOptions(TEN_MINUTES));
+  return { ok: true, data: { step: "passkey" } };
 }

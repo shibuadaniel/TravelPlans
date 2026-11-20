@@ -12,7 +12,8 @@ function isPublic(pathname: string) {
     pathname.startsWith("/s/") ||
     pathname.startsWith("/guest") ||
     pathname.startsWith("/api/documents") ||
-    pathname === "/api/avatar"
+    pathname === "/api/avatar" ||
+    pathname.startsWith("/api/passkey")
   );
 }
 

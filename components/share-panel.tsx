@@ -14,8 +14,10 @@ import { useState } from "react";
 import { ConfirmDialog } from "@/components/confirm-dialog";
 import {
   addCollaboratorAction,
+  addGuestEmailAction,
   createShareAction,
   removeCollaboratorAction,
+  removeGuestEmailAction,
   revokeShareAction,
   rotateShareAction,
 } from "@/lib/actions/trips";
@@ -27,17 +29,21 @@ export function SharePanel({
   links,
   members,
   pinReady,
+  guestEmails,
 }: {
   tripId: string;
   links: ShareLinkInfo[];
   members: Member[];
   pinReady: boolean;
+  guestEmails: string[];
 }) {
   const [items, setItems] = useState(links);
   const [people, setPeople] = useState(members);
+  const [allowed, setAllowed] = useState(guestEmails);
   const [freshUrl, setFreshUrl] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
   const [email, setEmail] = useState("");
+  const [guestEmail, setGuestEmail] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
   const [confirm, setConfirm] = useState<"rotate" | { type: "revoke"; id: string } | { type: "remove"; userId: string; name: string } | null>(null);
@@ -95,6 +101,31 @@ export function SharePanel({
     }
   }
 
+  async function addAllowedEmail() {
+    setPending(true);
+    setError(null);
+    const result = await addGuestEmailAction(tripId, guestEmail);
+    setPending(false);
+    if (!result.ok) {
+      setError(result.error);
+      return;
+    }
+    setAllowed(result.data);
+    setGuestEmail("");
+  }
+
+  async function removeAllowedEmail(address: string) {
+    setPending(true);
+    setError(null);
+    const result = await removeGuestEmailAction(tripId, address);
+    setPending(false);
+    if (!result.ok) {
+      setError(result.error);
+      return;
+    }
+    setAllowed(result.data);
+  }
+
   async function addPerson() {
     setPending(true);
     setError(null);
@@ -124,7 +155,7 @@ export function SharePanel({
   return (
     <Stack spacing={1.5}>
       <Typography variant="body2" color="text.secondary">
-        Family opens this link with no account, then enters your PIN. The same PIN covers every trip. Change it on Account if it leaks. That signs out anyone who already opened a link. The raw link is shown only once.
+        Add each email that may open this link. They also enter your PIN, then save a passkey on that device. The same PIN covers every trip. Change it on Account if it leaks. That signs out anyone who already opened a link. The raw link is shown only once.
       </Typography>
       {pinReady ? null : (
         <Alert severity="info">
@@ -188,6 +219,41 @@ export function SharePanel({
               Revoke
             </Button>
           )}
+        </Box>
+      ))}
+
+      <Divider sx={{ my: 1 }} />
+      <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>
+        Emails that can open the link
+      </Typography>
+      <Typography variant="body2" color="text.secondary">
+        Only these addresses can enter the PIN. A new phone can use the email and PIN, then save its own passkey.
+      </Typography>
+      <Stack direction={{ xs: "column", sm: "row" }} spacing={1}>
+        <TextField
+          label="Allowed email"
+          type="email"
+          value={guestEmail}
+          onChange={(event) => setGuestEmail(event.target.value)}
+          autoComplete="off"
+        />
+        <Button variant="outlined" disabled={pending || !guestEmail.trim()} onClick={() => void addAllowedEmail()} sx={{ flexShrink: 0 }}>
+          Add
+        </Button>
+      </Stack>
+      {allowed.length === 0 ? (
+        <Typography variant="body2" color="text.secondary">
+          No emails yet. The link stays closed until you add one.
+        </Typography>
+      ) : null}
+      {allowed.map((address) => (
+        <Box key={address} sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+          <Typography variant="body2" noWrap sx={{ flex: 1 }}>
+            {address}
+          </Typography>
+          <Button color="error" disabled={pending} onClick={() => void removeAllowedEmail(address)}>
+            Remove
+          </Button>
         </Box>
       ))}
 

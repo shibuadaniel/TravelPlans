@@ -894,6 +894,158 @@ export async function markShareUsed(shareId: string) {
   await dbRun("UPDATE share_links SET last_used_at = ? WHERE id = ?", now(), shareId);
 }
 
+let guestAccessReady: Promise<void> | null = null;
+
+function ensureGuestAccess() {
+  guestAccessReady ??= (async () => {
+    try {
+      await transaction(async () => {
+        await dbRun("SET LOCAL lock_timeout = '3s'");
+        await dbRun(
+          `CREATE TABLE IF NOT EXISTS trip_guest_emails (
+            trip_id text not null references trips (id) on delete cascade,
+            email text not null,
+            created_at text not null,
+            primary key (trip_id, email)
+          )`,
+        );
+        await dbRun(
+          `CREATE TABLE IF NOT EXISTS guest_passkeys (
+            credential_id text primary key,
+            owner_user_id uuid not null references users (id) on delete cascade,
+            email text not null,
+            public_key text not null,
+            counter integer not null default 0,
+            gate integer not null,
+            created_at text not null
+          )`,
+        );
+        await dbRun("CREATE INDEX IF NOT EXISTS idx_guest_passkeys_owner ON guest_passkeys (owner_user_id, email)");
+        await dbRun("ALTER TABLE trip_guest_emails ENABLE ROW LEVEL SECURITY");
+        await dbRun("ALTER TABLE guest_passkeys ENABLE ROW LEVEL SECURITY");
+      });
+    } catch (error) {
+      guestAccessReady = null;
+      if (!isLockTimeout(error)) throw error;
+    }
+  })().catch((error) => {
+    guestAccessReady = null;
+    throw error;
+  });
+  return guestAccessReady;
+}
+
+export function normalizeGuestEmail(value: string) {
+  const email = value.trim().toLowerCase();
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) || email.length > 200) return null;
+  return email;
+}
+
+export async function listGuestEmails(tripId: string) {
+  await ensureGuestAccess();
+  const rows = await dbAll<{ email: string }>(
+    "SELECT email FROM trip_guest_emails WHERE trip_id = ? ORDER BY email",
+    tripId,
+  );
+  return rows.map((row) => row.email);
+}
+
+export async function addGuestEmail(tripId: string, email: string) {
+  await ensureGuestAccess();
+  const existing = await listGuestEmails(tripId);
+  if (existing.includes(email)) return existing;
+  if (existing.length >= 30) throw new Error("You can add up to 30 emails.");
+  await dbRun(
+    "INSERT INTO trip_guest_emails (trip_id, email, created_at) VALUES (?, ?, ?)",
+    tripId,
+    email,
+    now(),
+  );
+  return await listGuestEmails(tripId);
+}
+
+export async function removeGuestEmail(tripId: string, email: string) {
+  await ensureGuestAccess();
+  await dbRun("DELETE FROM trip_guest_emails WHERE trip_id = ? AND email = ?", tripId, email);
+  return await listGuestEmails(tripId);
+}
+
+export async function guestEmailAllowed(tripId: string, email: string) {
+  await ensureGuestAccess();
+  const row = await dbGet<{ email: string }>(
+    "SELECT email FROM trip_guest_emails WHERE trip_id = ? AND email = ?",
+    tripId,
+    email,
+  );
+  return Boolean(row);
+}
+
+export async function tripOwnerId(tripId: string) {
+  const row = await dbGet<{ owner_user_id: string }>("SELECT owner_user_id FROM trips WHERE id = ?", tripId);
+  return row?.owner_user_id ?? null;
+}
+
+export async function listGuestPasskeyIds(ownerId: string, email: string) {
+  await ensureGuestAccess();
+  const rows = await dbAll<{ credential_id: string }>(
+    "SELECT credential_id FROM guest_passkeys WHERE owner_user_id = ? AND email = ?",
+    ownerId,
+    email,
+  );
+  return rows.map((row) => row.credential_id);
+}
+
+export async function saveGuestPasskey(input: {
+  credentialId: string;
+  ownerId: string;
+  email: string;
+  publicKey: string;
+  counter: number;
+  gate: number;
+}) {
+  await ensureGuestAccess();
+  await dbRun(
+    `INSERT INTO guest_passkeys (credential_id, owner_user_id, email, public_key, counter, gate, created_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?)`,
+    input.credentialId,
+    input.ownerId,
+    input.email,
+    input.publicKey,
+    input.counter,
+    input.gate,
+    now(),
+  );
+}
+
+export async function findGuestPasskey(credentialId: string) {
+  await ensureGuestAccess();
+  const row = await dbGet<{
+    credential_id: string;
+    owner_user_id: string;
+    email: string;
+    public_key: string;
+    counter: number | string;
+    gate: number | string;
+  }>(
+    "SELECT credential_id, owner_user_id, email, public_key, counter, gate FROM guest_passkeys WHERE credential_id = ?",
+    credentialId,
+  );
+  if (!row) return null;
+  return {
+    credentialId: row.credential_id,
+    ownerId: row.owner_user_id,
+    email: row.email,
+    publicKey: row.public_key,
+    counter: Number(row.counter),
+    gate: Number(row.gate),
+  };
+}
+
+export async function updateGuestPasskeyCounter(credentialId: string, counter: number) {
+  await ensureGuestAccess();
+  await dbRun("UPDATE guest_passkeys SET counter = ? WHERE credential_id = ?", counter, credentialId);
+}
+
 export async function shareIsActive(shareId: string, tripId: string) {
   const row = await dbGet<{ id: string }>(
     "SELECT id FROM share_links WHERE id = ? AND trip_id = ? AND revoked_at IS NULL",

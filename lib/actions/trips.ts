@@ -12,7 +12,10 @@ import {
   insertBlankTrip,
   listShareLinks,
   userHasSharePin,
+  addGuestEmail,
   listMembers,
+  normalizeGuestEmail,
+  removeGuestEmail,
   removeCollaborator,
   revokeShare,
   rotateShare,
@@ -50,12 +53,20 @@ async function editor(tripId: string) {
   return { user, role: await getRole(user.id, tripId) };
 }
 
+function localHost(host: string) {
+  const name = host.split(":")[0];
+  if (name === "localhost" || name.endsWith(".local")) return true;
+  if (name.startsWith("127.") || name.startsWith("10.") || name.startsWith("192.168.")) return true;
+  const second = Number(name.split(".")[1]);
+  return name.startsWith("172.") && second >= 16 && second <= 31;
+}
+
 async function origin() {
   const headerList = await headers();
   const host = headerList.get("x-forwarded-host") ?? headerList.get("host");
   if (!host) return "http://localhost:3000";
   const forwarded = headerList.get("x-forwarded-proto");
-  const proto = forwarded ?? (host.includes("localhost") || host.startsWith("127.") ? "http" : "https");
+  const proto = localHost(host) ? "http" : forwarded ?? "https";
   return `${proto}://${host}`;
 }
 
@@ -253,6 +264,30 @@ export async function revokeShareAction(tripId: string, linkId: string): Promise
   await revokeShare(tripId, linkId);
   revalidateTrip(tripId);
   return { ok: true, data: await listShareLinks(tripId) };
+}
+
+export async function addGuestEmailAction(tripId: string, email: string): Promise<Result<string[]>> {
+  const access = await ownerShare(tripId);
+  if (!access.ok) return access;
+  const normalized = normalizeGuestEmail(email);
+  if (!normalized) return { ok: false, error: "Enter a valid email address." };
+  try {
+    const emails = await addGuestEmail(tripId, normalized);
+    revalidateTrip(tripId);
+    return { ok: true, data: emails };
+  } catch (error) {
+    return { ok: false, error: error instanceof Error ? error.message : "Could not add that email." };
+  }
+}
+
+export async function removeGuestEmailAction(tripId: string, email: string): Promise<Result<string[]>> {
+  const access = await ownerShare(tripId);
+  if (!access.ok) return access;
+  const normalized = normalizeGuestEmail(email);
+  if (!normalized) return { ok: false, error: "Enter a valid email address." };
+  const emails = await removeGuestEmail(tripId, normalized);
+  revalidateTrip(tripId);
+  return { ok: true, data: emails };
 }
 
 export async function addCollaboratorAction(tripId: string, email: string): Promise<Result<Member[]>> {

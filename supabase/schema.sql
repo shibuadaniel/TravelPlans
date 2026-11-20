@@ -116,6 +116,25 @@ create table if not exists public.insurance_documents (
   created_at text not null
 );
 
+create table if not exists public.trip_guest_emails (
+  trip_id text not null references public.trips (id) on delete cascade,
+  email text not null,
+  created_at text not null,
+  primary key (trip_id, email)
+);
+
+create table if not exists public.guest_passkeys (
+  credential_id text primary key,
+  owner_user_id uuid not null references public.users (id) on delete cascade,
+  email text not null,
+  public_key text not null,
+  counter integer not null default 0,
+  gate integer not null,
+  created_at text not null
+);
+
+create index if not exists idx_guest_passkeys_owner on public.guest_passkeys (owner_user_id, email);
+
 create table if not exists public.share_links (
   id text primary key,
   trip_id text not null references public.trips (id) on delete cascade,
@@ -160,6 +179,8 @@ alter table public.stays enable row level security;
 alter table public.congregations enable row level security;
 alter table public.insurance enable row level security;
 alter table public.insurance_documents enable row level security;
+alter table public.trip_guest_emails enable row level security;
+alter table public.guest_passkeys enable row level security;
 alter table public.share_links enable row level security;
 alter table public.place_photos enable row level security;
 alter table public.auth_attempts enable row level security;
