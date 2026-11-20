@@ -41,6 +41,13 @@ export const theme = createTheme({
             width: "fit-content !important",
             maxWidth: "100% !important",
           },
+          ".MuiFormControl-root:has(.MuiInputLabel-shrink) & .MuiOutlinedInput-notchedOutline": {
+            paddingLeft: 6,
+          },
+          ".MuiFormControl-root:has(.MuiInputLabel-shrink) & .MuiOutlinedInput-notchedOutline legend span": {
+            paddingLeft: 8,
+            paddingRight: 8,
+          },
         },
       },
     },
