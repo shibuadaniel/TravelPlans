@@ -203,7 +203,7 @@ export function GuestPinForm({
         <Box sx={{ display: "flex", alignItems: "center", gap: 1.5 }}>
           <ProfilePhoto src={hasPhoto ? "/api/avatar" : undefined} />
           <Typography variant="h5" component="h1">
-            Where are we?
+            Reveal
           </Typography>
         </Box>
         {savePasskey || awaitingCode || device !== "unknown" ? (

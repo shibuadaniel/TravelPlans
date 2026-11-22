@@ -12,7 +12,7 @@ export function webAuthnRelyingParty(request: Request) {
     .trim();
   return {
     rpID: host.split(":")[0],
-    rpName: "Where are we?",
+    rpName: "Reveal",
     origin: `${proto}://${host}`,
   };
 }

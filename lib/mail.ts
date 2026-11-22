@@ -19,7 +19,7 @@ export async function sendGuestCode(email: string, code: string) {
     body: JSON.stringify({
       from,
       to: [email],
-      subject: "Your code for Where are we?",
+      subject: "Your code for Reveal",
       text: `Your code is ${code}. It expires in 10 minutes.\n\nIf you did not try to open a trip, you can ignore this email.`,
     }),
   });

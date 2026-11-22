@@ -4,7 +4,7 @@ import Box from "@mui/material/Box";
 import { useEffect, useState } from "react";
 import { pastelGradient } from "@/lib/format";
 
-export function ProfilePhoto({ src, size = 48 }: { src?: string; size?: number }) {
+export function ProfilePhoto({ src, size = 48, initial }: { src?: string; size?: number; initial?: string }) {
   const [failed, setFailed] = useState(false);
 
   useEffect(() => {
@@ -33,6 +33,20 @@ export function ProfilePhoto({ src, size = 48 }: { src?: string; size?: number }
           onError={() => setFailed(true)}
           sx={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
         />
+      ) : initial ? (
+        <Box
+          sx={{
+            width: "100%",
+            height: "100%",
+            display: "grid",
+            placeItems: "center",
+            color: "text.primary",
+            fontWeight: 700,
+            fontSize: size * 0.42,
+          }}
+        >
+          {initial}
+        </Box>
       ) : null}
     </Box>
   );

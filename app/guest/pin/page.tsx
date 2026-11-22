@@ -11,7 +11,7 @@ import {
 import { tripOwnerAvatar } from "@/lib/data";
 import { cookies } from "next/headers";
 
-export const metadata = { title: "Where are we?" };
+export const metadata = { title: "Reveal" };
 
 export default async function GuestPinPage() {
   const jar = await cookies();

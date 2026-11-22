@@ -10,10 +10,10 @@ import { displayDestination } from "@/lib/format";
 export async function generateMetadata({ params }: { params: Promise<{ tripId: string }> }): Promise<Metadata> {
   const { tripId } = await params;
   if (!(await guestCanRead(tripId))) {
-    return { title: "Where are we?" };
+    return { title: "Reveal" };
   }
   const bundle = await getBundle(tripId, "guest");
-  return { title: bundle ? displayDestination(bundle.trip.destination) : "Where are we?" };
+  return { title: bundle ? displayDestination(bundle.trip.destination) : "Reveal" };
 }
 
 export default async function GuestTripPage({ params }: { params: Promise<{ tripId: string }> }) {

@@ -1,4 +1,4 @@
-# Where are we?
+# Reveal
 
 A mobile-first trip briefing app. The owner writes the plan. Family opens a view-only link. No guest account.
 

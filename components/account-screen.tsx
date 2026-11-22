@@ -16,10 +16,12 @@ export function AccountScreen({
   email,
   name,
   hasPhoto,
+  embedded = false,
 }: {
   email: string;
   name: string;
   hasPhoto: boolean;
+  embedded?: boolean;
 }) {
   const router = useRouter();
   const [error, setError] = useState<string | null>(null);
@@ -96,18 +98,22 @@ export function AccountScreen({
   }
 
   return (
-    <Box sx={{ px: 2, pt: 3 }}>
-      <Typography variant="h4" component="h1">
-        Account
-      </Typography>
-      <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
-        {name ? `${name} · ${email}` : email}
-      </Typography>
-      <Typography variant="h6" component="h2" sx={{ mt: 3 }}>
+    <Box sx={embedded ? undefined : { px: 2, pt: 3 }}>
+      {embedded ? null : (
+        <>
+          <Typography variant="h4" component="h1">
+            Account
+          </Typography>
+          <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
+            {name ? `${name} · ${email}` : email}
+          </Typography>
+        </>
+      )}
+      <Typography variant="h6" component="h2" sx={{ mt: embedded ? 0 : 3 }}>
         Profile picture
       </Typography>
       <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5, mb: 1.5 }}>
-        This circle appears beside Where are we? when someone opens your share link.
+        This circle appears beside Reveal when someone opens your share link.
       </Typography>
       <Stack direction="row" spacing={1.5} sx={{ alignItems: "center", mb: 1.5 }}>
         <ProfilePhoto src={photoShown ? `/api/avatar?v=${photoVersion}` : undefined} size={64} />
