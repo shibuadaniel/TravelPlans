@@ -1,6 +1,6 @@
 import { AccountScreen } from "@/components/account-screen";
 import { requireUser } from "@/lib/current";
-import { userAvatar, userHasSharePin } from "@/lib/data";
+import { userAvatar } from "@/lib/data";
 
 export default async function AccountPage() {
   const user = await requireUser();
@@ -8,7 +8,6 @@ export default async function AccountPage() {
     <AccountScreen
       email={user.email}
       name={user.name}
-      pinSet={await userHasSharePin(user.id)}
       hasPhoto={Boolean(await userAvatar(user.id))}
     />
   );

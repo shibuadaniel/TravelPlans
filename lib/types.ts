@@ -66,6 +66,7 @@ export type Stay = {
   documentName: string | null;
   documentMime: string | null;
   documentSize: number | null;
+  requiresApproval: boolean;
 };
 
 export type Congregation = {
@@ -91,6 +92,7 @@ export type InsuranceDocument = {
   documentName: string;
   documentMime: string;
   documentSize: number;
+  requiresApproval: boolean;
 };
 
 export type TripBundle = {

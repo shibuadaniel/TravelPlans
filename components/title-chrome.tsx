@@ -10,6 +10,7 @@ import { displayDestination } from "@/lib/format";
 
 export function TitleChrome({
   backHref,
+  onBack,
   backLabel = "Back",
   title,
   subtitle,
@@ -17,6 +18,7 @@ export function TitleChrome({
   avatarSrc,
 }: {
   backHref?: string;
+  onBack?: () => void;
   backLabel?: string;
   title: string;
   subtitle?: string;
@@ -48,10 +50,9 @@ export function TitleChrome({
           py: 1.5,
         }}
       >
-      {backHref ? (
+      {onBack || backHref ? (
         <IconButton
-          component={Link}
-          href={backHref}
+          {...(onBack ? { onClick: onBack } : { component: Link, href: backHref })}
           aria-label={backLabel}
           className="no-print"
           sx={{ ml: -0.5 }}

@@ -76,6 +76,7 @@ create table if not exists public.stays (
   document_mime text,
   document_size integer,
   document_key text,
+  requires_approval integer not null default 0,
   sort_order integer not null default 0,
   created_at text not null,
   updated_at text not null
@@ -112,6 +113,7 @@ create table if not exists public.insurance_documents (
   document_mime text not null,
   document_size integer not null,
   document_key text not null,
+  requires_approval integer not null default 0,
   sort_order integer not null default 0,
   created_at text not null
 );
@@ -169,6 +171,31 @@ create table if not exists public.auth_attempts (
 
 create index if not exists idx_auth_attempts_key on public.auth_attempts (attempt_key, created_at);
 
+create table if not exists public.document_open_requests (
+  id text primary key,
+  trip_id text not null references public.trips (id) on delete cascade,
+  document_kind text not null,
+  document_id text not null,
+  document_name text not null,
+  requester_email text,
+  status text not null,
+  created_at text not null,
+  decided_at text
+);
+
+create index if not exists idx_document_opens_doc on public.document_open_requests (document_kind, document_id, status);
+
+create table if not exists public.guest_email_codes (
+  id text primary key,
+  trip_id text not null,
+  share_id text not null,
+  email text not null,
+  code_hash text not null,
+  expires_at text not null,
+  attempts integer not null default 0,
+  created_at text not null
+);
+
 -- The app talks to Postgres with DATABASE_URL, which bypasses row level security.
 alter table public.users enable row level security;
 alter table public.trips enable row level security;
@@ -184,6 +211,8 @@ alter table public.guest_passkeys enable row level security;
 alter table public.share_links enable row level security;
 alter table public.place_photos enable row level security;
 alter table public.auth_attempts enable row level security;
+alter table public.document_open_requests enable row level security;
+alter table public.guest_email_codes enable row level security;
 
 insert into storage.buckets (id, name, public)
 values ('trip-documents', 'trip-documents', false)

@@ -48,13 +48,11 @@ export function TripBriefing({
           title="Stays"
           editHref={editable ? `/trips/${trip.id}/edit?step=stays` : undefined}
         >
-          <StaysBody stays={bundle.stays} />
+          <StaysBody stays={bundle.stays} guest={!editable} />
         </SectionAccordion>
-        {mode === "guest" ? null : (
-          <SectionAccordion title="Insurance" editHref={editable ? `/trips/${trip.id}/edit?step=insurance` : undefined}>
-            <InsuranceBody insurance={bundle.insurance} documents={bundle.insuranceDocuments} />
-          </SectionAccordion>
-        )}
+        <SectionAccordion title="Insurance" editHref={editable ? `/trips/${trip.id}/edit?step=insurance` : undefined}>
+          <InsuranceBody insurance={bundle.insurance} documents={bundle.insuranceDocuments} guest={!editable} />
+        </SectionAccordion>
         <SectionAccordion
           title="Congregations"
           editHref={editable ? `/trips/${trip.id}/edit?step=congregations` : undefined}

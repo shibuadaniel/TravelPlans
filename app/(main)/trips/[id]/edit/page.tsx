@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { TripEditor } from "@/components/trip-editor";
 import { requireUser } from "@/lib/current";
-import { getAccessibleBundle, listGuestEmails, listMembers, listShareLinks, userHasSharePin } from "@/lib/data";
+import { getAccessibleBundle, listGuestEmails, listMembers, listShareLinks } from "@/lib/data";
 import { displayDestination } from "@/lib/format";
 import { EDIT_STEPS, type EditStep } from "@/lib/types";
 
@@ -39,7 +39,6 @@ export default async function EditTripPage({
       initialStep={parseStep(step, bundle.trip.role === "owner")}
       shareLinks={shareLinks}
       members={members}
-      pinReady={bundle.trip.role === "owner" ? await userHasSharePin(user.id) : false}
       guestEmails={bundle.trip.role === "owner" ? await listGuestEmails(id) : []}
     />
   );

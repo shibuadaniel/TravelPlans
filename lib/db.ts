@@ -15,7 +15,11 @@ function getSql() {
   if (!globalForSql.travelSql) {
     globalForSql.travelSql = postgres(url, {
       prepare: false,
-      max: 5,
+      max: 8,
+      connect_timeout: 10,
+      idle_timeout: 20,
+      max_lifetime: 60 * 10,
+      connection: { statement_timeout: 20000, lock_timeout: 3000 },
       ssl: url.includes("localhost") || url.includes("127.0.0.1") ? false : "require",
     });
   }
@@ -31,18 +35,33 @@ function bind(query: string) {
   return query.replace(/\?/g, () => `$${++index}`);
 }
 
-export async function dbAll<T>(query: string, ...params: SqlValue[]) {
-  const rows = await client().unsafe(bind(query), params);
+function errorCode(error: unknown) {
+  return typeof error === "object" && error !== null && "code" in error ? String((error as { code?: string }).code) : "";
+}
+
+async function query(sql: string, params: SqlValue[]) {
+  const run = () => client().unsafe(bind(sql), params);
+  try {
+    return await run();
+  } catch (error) {
+    // A cancelled read is safe to repeat. A transaction has to roll back instead.
+    if (transactionSql.getStore() || errorCode(error) !== "57014") throw error;
+    return await run();
+  }
+}
+
+export async function dbAll<T>(sql: string, ...params: SqlValue[]) {
+  const rows = await query(sql, params);
   return rows as unknown as T[];
 }
 
-export async function dbGet<T>(query: string, ...params: SqlValue[]) {
-  const rows = await dbAll<T>(query, ...params);
+export async function dbGet<T>(sql: string, ...params: SqlValue[]) {
+  const rows = await dbAll<T>(sql, ...params);
   return rows[0];
 }
 
-export async function dbRun(query: string, ...params: SqlValue[]) {
-  await client().unsafe(bind(query), params);
+export async function dbRun(sql: string, ...params: SqlValue[]) {
+  await query(sql, params);
 }
 
 export async function transaction<T>(fn: () => Promise<T>) {

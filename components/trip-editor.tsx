@@ -1,6 +1,7 @@
 "use client";
 
 import Box from "@mui/material/Box";
+import { useRouter } from "next/navigation";
 import { useRef, useState } from "react";
 import {
   CarsForm,
@@ -14,6 +15,7 @@ import { SectionAccordion } from "@/components/section-accordion";
 import { CarsBody, CongregationsBody, FlightsBody, InsuranceBody, OverviewBody, StaysBody } from "@/components/section-bodies";
 import { SharePanel } from "@/components/share-panel";
 import { TitleChrome } from "@/components/title-chrome";
+import { deleteTripAction } from "@/lib/actions/trips";
 import { blankCar, blankCongregation, blankFlight, blankStay } from "@/lib/blank";
 import { travelReturnLabel } from "@/lib/format";
 import {
@@ -48,16 +50,15 @@ export function TripEditor({
   initialStep,
   shareLinks,
   members,
-  pinReady,
   guestEmails,
 }: {
   bundle: TripBundle;
   initialStep: EditStep;
   shareLinks: ShareLinkInfo[];
   members: Member[];
-  pinReady: boolean;
   guestEmails: string[];
 }) {
+  const router = useRouter();
   const role = bundle.trip.role;
   const [overviewSaved, setOverviewSaved] = useState(bundle.trip.destination.trim().length > 0);
   const openingStep: EditStep | null = overviewSaved ? (initialStep === "share" ? null : initialStep) : "overview";
@@ -101,6 +102,11 @@ export function TripEditor({
     setEditing(step);
   }
 
+  function leaveNewTrip() {
+    void deleteTripAction(bundle.trip.id);
+    router.push("/");
+  }
+
   function cancelEdit() {
     const baseline = baselineRef.current;
     if (baseline?.step === "overview") {
@@ -140,8 +146,9 @@ export function TripEditor({
   return (
     <>
       <TitleChrome
-        backHref={`/trips/${bundle.trip.id}`}
-        backLabel="Back to trip"
+        backHref={overviewSaved ? `/trips/${bundle.trip.id}` : undefined}
+        onBack={overviewSaved ? undefined : leaveNewTrip}
+        backLabel={overviewSaved ? "Back to trip" : "Back"}
         title={destination}
         subtitle={travelReturnLabel(travelDate, returnDate)}
       />
@@ -171,7 +178,7 @@ export function TripEditor({
                 setOverviewSaved(true);
                 advance("overview");
               }}
-              onCancel={overviewSaved ? cancelEdit : undefined}
+              onCancel={overviewSaved ? cancelEdit : leaveNewTrip}
             />
           ) : (
             <OverviewBody destination={destination} travelDate={travelDate} returnDate={returnDate} notes={notes} />
@@ -300,7 +307,7 @@ export function TripEditor({
             expanded={expanded === "share"}
             onChange={(open) => setExpanded(open ? "share" : false)}
           >
-            <SharePanel tripId={bundle.trip.id} links={shareLinks} members={members} pinReady={pinReady} guestEmails={guestEmails} />
+            <SharePanel tripId={bundle.trip.id} links={shareLinks} members={members} guestEmails={guestEmails} />
           </SectionAccordion>
         ) : null}
       </Box>

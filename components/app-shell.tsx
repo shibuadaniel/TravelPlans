@@ -8,6 +8,7 @@ import Toolbar from "@mui/material/Toolbar";
 import Typography from "@mui/material/Typography";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { OwnerApprovalAlert } from "@/components/owner-approval-alert";
 import { signOut } from "@/lib/actions/auth";
 
 function hideBrandBar(pathname: string) {
@@ -73,6 +74,7 @@ export function AppShell({
       >
         {children}
       </Box>
+      <OwnerApprovalAlert signedIn={signedIn} />
     </Box>
   );
 }

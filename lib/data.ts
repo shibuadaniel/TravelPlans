@@ -1,6 +1,7 @@
 import "server-only";
 
 import { createHash, randomBytes, randomUUID } from "crypto";
+import { cache } from "react";
 import { dbAll, dbGet, dbRun, transaction } from "@/lib/db";
 import { removeStoredFile } from "@/lib/uploads";
 import { cleanJwUrl } from "@/lib/urls";
@@ -64,14 +65,59 @@ function mapUser(row: UserRow): User {
   };
 }
 
-let pinColumnsReady: Promise<void> | null = null;
+function errorCode(error: unknown) {
+  return typeof error === "object" && error !== null && "code" in error ? String((error as { code?: string }).code) : "";
+}
 
 function isLockTimeout(error: unknown) {
-  return typeof error === "object" && error !== null && "code" in error && (error as { code?: string }).code === "55P03";
+  return errorCode(error) === "55P03";
+}
+
+async function selectWorks(query: string) {
+  try {
+    await dbRun(query);
+    return true;
+  } catch (error) {
+    const code = errorCode(error);
+    if (code === "42P01" || code === "42703") return false;
+    throw error;
+  }
+}
+
+const schemaReady = globalThis as { travelSchema?: Record<string, Promise<void>> };
+
+function once(key: string, task: () => Promise<void>) {
+  schemaReady.travelSchema ??= {};
+  schemaReady.travelSchema[key] ??= task().catch((error) => {
+    delete schemaReady.travelSchema?.[key];
+    throw error;
+  });
+  return schemaReady.travelSchema[key];
+}
+
+function ensureApprovalColumns() {
+  return once("approval-columns", async () => {
+    if (
+      (await selectWorks("SELECT requires_approval FROM stays LIMIT 0")) &&
+      (await selectWorks("SELECT requires_approval FROM insurance_documents LIMIT 0"))
+    ) {
+      return;
+    }
+    try {
+      await transaction(async () => {
+        await dbRun("SET LOCAL lock_timeout = '3s'");
+        await dbRun("ALTER TABLE stays ADD COLUMN IF NOT EXISTS requires_approval integer NOT NULL DEFAULT 0");
+        await dbRun("ALTER TABLE insurance_documents ADD COLUMN IF NOT EXISTS requires_approval integer NOT NULL DEFAULT 0");
+      });
+    } catch (error) {
+      if (!isLockTimeout(error)) throw error;
+    }
+  });
 }
 
 function ensureSharePinColumns() {
-  pinColumnsReady ??= (async () => {
+  return once("share-pin-columns", async () => {
+    if (await selectWorks("SELECT pin_hash, share_gate, avatar_key, avatar_mime FROM users LIMIT 0")) return;
     try {
       await transaction(async () => {
         await dbRun("SET LOCAL lock_timeout = '3s'");
@@ -81,18 +127,12 @@ function ensureSharePinColumns() {
         await dbRun("ALTER TABLE users ADD COLUMN IF NOT EXISTS avatar_mime text");
       });
     } catch (error) {
-      pinColumnsReady = null;
       if (!isLockTimeout(error)) throw error;
     }
-  })().catch((error) => {
-    pinColumnsReady = null;
-    throw error;
   });
-  return pinColumnsReady;
 }
 
 export async function userHasSharePin(userId: string) {
-  await ensureSharePinColumns();
   const row = await dbGet<{ pin_hash: string | null }>("SELECT pin_hash FROM users WHERE id = ?", userId);
   return Boolean(row?.pin_hash);
 }
@@ -102,21 +142,19 @@ export async function saveSharePin(userId: string, pinHash: string) {
   await dbRun("UPDATE users SET pin_hash = ?, share_gate = share_gate + 1 WHERE id = ?", pinHash, userId);
 }
 
-export async function tripSharePin(tripId: string) {
-  await ensureSharePinColumns();
-  const row = await dbGet<{ pin_hash: string | null; share_gate: number | string }>(
-    `SELECT u.pin_hash, u.share_gate
+export async function tripShareGate(tripId: string) {
+  const row = await dbGet<{ share_gate: number | string }>(
+    `SELECT u.share_gate
      FROM trips t JOIN users u ON u.id = t.owner_user_id
      WHERE t.id = ?`,
     tripId,
   );
-  if (!row?.pin_hash) return null;
-  return { pinHash: row.pin_hash, gate: Number(row.share_gate) };
+  if (!row) return null;
+  return { gate: Number(row.share_gate) };
 }
 
 export async function userAvatar(userId: string) {
   if (!userId) return null;
-  await ensureSharePinColumns();
   const row = await dbGet<{ avatar_key: string | null; avatar_mime: string | null }>(
     "SELECT avatar_key, avatar_mime FROM users WHERE id = ?",
     userId,
@@ -126,7 +164,6 @@ export async function userAvatar(userId: string) {
 }
 
 export async function tripOwnerAvatar(tripId: string) {
-  await ensureSharePinColumns();
   const row = await dbGet<{ avatar_key: string | null; avatar_mime: string | null }>(
     `SELECT u.avatar_key, u.avatar_mime
      FROM trips t JOIN users u ON u.id = t.owner_user_id
@@ -307,6 +344,10 @@ function mapCar(row: {
   };
 }
 
+function approvalOn(value: boolean | number | string | null | undefined) {
+  return value === true || value === 1 || value === "1";
+}
+
 function mapStay(row: {
   id: string;
   name: string;
@@ -316,6 +357,7 @@ function mapStay(row: {
   document_name: string | null;
   document_mime: string | null;
   document_size: number | null;
+  requires_approval: boolean | number | string | null;
 }): Stay {
   return {
     id: row.id,
@@ -326,6 +368,7 @@ function mapStay(row: {
     documentName: row.document_name,
     documentMime: row.document_mime,
     documentSize: row.document_size,
+    requiresApproval: approvalOn(row.requires_approval),
   };
 }
 
@@ -356,7 +399,7 @@ const emptyInsurance: Insurance = {
   claimNotes: "",
 };
 
-export async function getBundle(tripId: string, role: TripRole): Promise<TripBundle | null> {
+export const getBundle = cache(async function getBundle(tripId: string, role: TripRole): Promise<TripBundle | null> {
   const guest = role === "guest";
   const trip = await dbGet<TripRow>(
     guest
@@ -365,40 +408,51 @@ export async function getBundle(tripId: string, role: TripRole): Promise<TripBun
     tripId,
   );
   if (!trip) return null;
-  const flights = (await dbAll<Parameters<typeof mapFlight>[0]>(
-    `SELECT id, airline, flight_number, from_airport, to_airport, depart_at, arrive_at, confirmation, passengers, terminal_gate
-     FROM flights WHERE trip_id = ? ORDER BY sort_order, created_at`,
-    tripId,
-  )).map(mapFlight);
-  const carRentals = (await dbAll<Parameters<typeof mapCar>[0]>(
-    `SELECT id, company, confirmation, pickup_place, dropoff_place, pickup_at, dropoff_at, vehicle_class, contact_phone
-     FROM car_rentals WHERE trip_id = ? ORDER BY sort_order, created_at`,
-    tripId,
-  )).map(mapCar);
-  const stays = (await dbAll<Parameters<typeof mapStay>[0]>(
-    `SELECT id, name, address, check_in, check_out, document_name, document_mime, document_size
-     FROM stays WHERE trip_id = ? ORDER BY sort_order, created_at`,
-    tripId,
-  )).map(mapStay);
-  const congregations = (await dbAll<Parameters<typeof mapCongregation>[0]>(
-    `SELECT id, name, address, meeting_times, jw_org_url, notes
-     FROM congregations WHERE trip_id = ? ORDER BY sort_order, created_at`,
-    tripId,
-  )).map(mapCongregation);
-  const insuranceRow = guest
-    ? null
-    : await dbGet<{
-        provider: string;
-        policy_number: string;
-        phone: string;
-        coverage_start: string | null;
-        coverage_end: string | null;
-        claim_notes: string;
-      }>(
-        `SELECT provider, policy_number, phone, coverage_start, coverage_end, claim_notes
-         FROM insurance WHERE trip_id = ?`,
-        tripId,
-      );
+  const [flightRows, carRows, stayRows, congregationRows, insuranceRow, insuranceRows] = await Promise.all([
+    dbAll<Parameters<typeof mapFlight>[0]>(
+      `SELECT id, airline, flight_number, from_airport, to_airport, depart_at, arrive_at, confirmation, passengers, terminal_gate
+       FROM flights WHERE trip_id = ? ORDER BY sort_order, created_at`,
+      tripId,
+    ),
+    dbAll<Parameters<typeof mapCar>[0]>(
+      `SELECT id, company, confirmation, pickup_place, dropoff_place, pickup_at, dropoff_at, vehicle_class, contact_phone
+       FROM car_rentals WHERE trip_id = ? ORDER BY sort_order, created_at`,
+      tripId,
+    ),
+    dbAll<Parameters<typeof mapStay>[0]>(
+      `SELECT id, name, address, check_in, check_out, document_name, document_mime, document_size, requires_approval
+       FROM stays WHERE trip_id = ? ORDER BY sort_order, created_at`,
+      tripId,
+    ),
+    dbAll<Parameters<typeof mapCongregation>[0]>(
+      `SELECT id, name, address, meeting_times, jw_org_url, notes
+       FROM congregations WHERE trip_id = ? ORDER BY sort_order, created_at`,
+      tripId,
+    ),
+    dbGet<{
+      provider: string;
+      policy_number: string;
+      phone: string;
+      coverage_start: string | null;
+      coverage_end: string | null;
+      claim_notes: string;
+    }>(
+      `SELECT provider, policy_number, phone, coverage_start, coverage_end, claim_notes
+       FROM insurance WHERE trip_id = ?`,
+      tripId,
+    ),
+    dbAll<{
+      id: string;
+      document_name: string;
+      document_mime: string;
+      document_size: number;
+      requires_approval: boolean | number | string | null;
+    }>(
+      `SELECT id, document_name, document_mime, document_size, requires_approval
+       FROM insurance_documents WHERE trip_id = ? ORDER BY sort_order, created_at`,
+      tripId,
+    ),
+  ]);
   const insurance: Insurance = insuranceRow
     ? {
         provider: insuranceRow.provider,
@@ -409,25 +463,6 @@ export async function getBundle(tripId: string, role: TripRole): Promise<TripBun
         claimNotes: insuranceRow.claim_notes,
       }
     : emptyInsurance;
-  const insuranceDocuments = guest
-    ? []
-    : (await dbAll<{
-    id: string;
-    document_name: string;
-    document_mime: string;
-    document_size: number;
-  }>(
-    `SELECT id, document_name, document_mime, document_size
-     FROM insurance_documents WHERE trip_id = ? ORDER BY sort_order, created_at`,
-    tripId,
-  )).map(
-    (row): InsuranceDocument => ({
-      id: row.id,
-      documentName: row.document_name,
-      documentMime: row.document_mime,
-      documentSize: row.document_size,
-    }),
-  );
   const tripModel: Trip = {
     id: trip.id,
     destination: trip.destination,
@@ -436,14 +471,30 @@ export async function getBundle(tripId: string, role: TripRole): Promise<TripBun
     notes: trip.notes,
     role,
   };
-  return { trip: tripModel, flights, carRentals, stays, congregations, insurance, insuranceDocuments };
-}
+  return {
+    trip: tripModel,
+    flights: flightRows.map(mapFlight),
+    carRentals: carRows.map(mapCar),
+    stays: stayRows.map(mapStay),
+    congregations: congregationRows.map(mapCongregation),
+    insurance,
+    insuranceDocuments: insuranceRows.map(
+      (row): InsuranceDocument => ({
+        id: row.id,
+        documentName: row.document_name,
+        documentMime: row.document_mime,
+        documentSize: row.document_size,
+        requiresApproval: approvalOn(row.requires_approval),
+      }),
+    ),
+  };
+});
 
-export async function getAccessibleBundle(userId: string, tripId: string) {
+export const getAccessibleBundle = cache(async function getAccessibleBundle(userId: string, tripId: string) {
   const role = await getRole(userId, tripId);
   if (!role) return null;
   return await getBundle(tripId, role);
-}
+});
 
 export async function saveOverview(
   tripId: string,
@@ -585,6 +636,7 @@ export type StayWrite = Stay & {
 };
 
 export async function saveStays(tripId: string, stays: StayWrite[]) {
+  await ensureApprovalColumns();
   const existingRows = (await dbAll<{ id: string; document_key: string | null }>(
     "SELECT id, document_key FROM stays WHERE trip_id = ?",
     tripId,
@@ -601,6 +653,7 @@ export async function saveStays(tripId: string, stays: StayWrite[]) {
       let documentMime = stay.documentMime;
       let documentSize = stay.documentSize;
       let documentKey = existing.get(stay.id) ?? null;
+      let requiresApproval = Boolean(stay.requiresApproval);
       if (stay.file) {
         if (documentKey) removedKeys.push(documentKey);
         documentName = stay.file.name;
@@ -613,17 +666,19 @@ export async function saveStays(tripId: string, stays: StayWrite[]) {
         documentMime = null;
         documentSize = null;
         documentKey = null;
+        requiresApproval = false;
       }
       const values = [text(stay.name, 200), text(stay.address, 400), dateOnly(stay.checkIn), dateOnly(stay.checkOut)] as const;
       if (existing.has(id)) {
         await dbRun(
-          `UPDATE stays SET name = ?, address = ?, check_in = ?, check_out = ?, document_name = ?, document_mime = ?, document_size = ?, document_key = ?, sort_order = ?, updated_at = ?
+          `UPDATE stays SET name = ?, address = ?, check_in = ?, check_out = ?, document_name = ?, document_mime = ?, document_size = ?, document_key = ?, requires_approval = ?, sort_order = ?, updated_at = ?
            WHERE id = ? AND trip_id = ?`,
           ...values,
           documentName,
           documentMime,
           documentSize,
           documentKey,
+          requiresApproval ? 1 : 0,
           index,
           timestamp,
           id,
@@ -631,8 +686,8 @@ export async function saveStays(tripId: string, stays: StayWrite[]) {
         );
       } else {
         await dbRun(
-          `INSERT INTO stays (id, trip_id, name, address, check_in, check_out, document_name, document_mime, document_size, document_key, sort_order, created_at, updated_at)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+          `INSERT INTO stays (id, trip_id, name, address, check_in, check_out, document_name, document_mime, document_size, document_key, requires_approval, sort_order, created_at, updated_at)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
           id,
           tripId,
           ...values,
@@ -640,6 +695,7 @@ export async function saveStays(tripId: string, stays: StayWrite[]) {
           documentMime,
           documentSize,
           documentKey,
+          requiresApproval ? 1 : 0,
           index,
           timestamp,
           timestamp,
@@ -661,8 +717,10 @@ export async function saveStays(tripId: string, stays: StayWrite[]) {
 export async function saveInsurance(
   tripId: string,
   insurance: Insurance,
-  files: { name: string; mime: string; size: number; key: string }[],
+  files: { name: string; mime: string; size: number; key: string; requiresApproval: boolean }[],
+  approvals: { id: string; requiresApproval: boolean }[] = [],
 ) {
+  await ensureApprovalColumns();
   const timestamp = now();
   const count = await dbGet<{ count: number }>(
     "SELECT COUNT(*) AS count FROM insurance_documents WHERE trip_id = ?",
@@ -692,17 +750,26 @@ export async function saveInsurance(
       text(insurance.claimNotes, 5000),
       timestamp,
     );
+    for (const approval of approvals) {
+      await dbRun(
+        "UPDATE insurance_documents SET requires_approval = ? WHERE id = ? AND trip_id = ?",
+        approval.requiresApproval ? 1 : 0,
+        approval.id,
+        tripId,
+      );
+    }
     const start = Number(count?.count ?? 0);
     for (const [index, file] of files.entries()) {
       await dbRun(
-        `INSERT INTO insurance_documents (id, trip_id, document_name, document_mime, document_size, document_key, sort_order, created_at)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+        `INSERT INTO insurance_documents (id, trip_id, document_name, document_mime, document_size, document_key, requires_approval, sort_order, created_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         randomUUID(),
         tripId,
         file.name,
         file.mime,
         file.size,
         file.key,
+        file.requiresApproval ? 1 : 0,
         start + index,
         timestamp,
       );
@@ -894,10 +961,14 @@ export async function markShareUsed(shareId: string) {
   await dbRun("UPDATE share_links SET last_used_at = ? WHERE id = ?", now(), shareId);
 }
 
-let guestAccessReady: Promise<void> | null = null;
-
 function ensureGuestAccess() {
-  guestAccessReady ??= (async () => {
+  return once("guest-access", async () => {
+    if (
+      (await selectWorks("SELECT email FROM trip_guest_emails LIMIT 0")) &&
+      (await selectWorks("SELECT credential_id FROM guest_passkeys LIMIT 0"))
+    ) {
+      return;
+    }
     try {
       await transaction(async () => {
         await dbRun("SET LOCAL lock_timeout = '3s'");
@@ -925,14 +996,9 @@ function ensureGuestAccess() {
         await dbRun("ALTER TABLE guest_passkeys ENABLE ROW LEVEL SECURITY");
       });
     } catch (error) {
-      guestAccessReady = null;
       if (!isLockTimeout(error)) throw error;
     }
-  })().catch((error) => {
-    guestAccessReady = null;
-    throw error;
   });
-  return guestAccessReady;
 }
 
 export function normalizeGuestEmail(value: string) {
@@ -1096,8 +1162,14 @@ export async function removeCollaborator(tripId: string, userId: string) {
 
 export async function getStayFile(stayId: string) {
   return (
-    await dbGet<{ trip_id: string; document_name: string; document_mime: string; document_key: string }>(
-      `SELECT trip_id, document_name, document_mime, document_key FROM stays
+    await dbGet<{
+      trip_id: string;
+      document_name: string;
+      document_mime: string;
+      document_key: string;
+      requires_approval: boolean | number | string | null;
+    }>(
+      `SELECT trip_id, document_name, document_mime, document_key, requires_approval FROM stays
        WHERE id = ? AND document_key IS NOT NULL`,
       stayId,
     ) ?? null
@@ -1106,9 +1178,203 @@ export async function getStayFile(stayId: string) {
 
 export async function getInsuranceFile(documentId: string) {
   return (
-    await dbGet<{ trip_id: string; document_name: string; document_mime: string; document_key: string }>(
-      "SELECT trip_id, document_name, document_mime, document_key FROM insurance_documents WHERE id = ?",
+    await dbGet<{
+      trip_id: string;
+      document_name: string;
+      document_mime: string;
+      document_key: string;
+      requires_approval: boolean | number | string | null;
+    }>(
+      "SELECT trip_id, document_name, document_mime, document_key, requires_approval FROM insurance_documents WHERE id = ?",
       documentId,
     ) ?? null
   );
+}
+
+export type DocumentKind = "stay" | "insurance";
+export type DocumentOpenStatus = "pending" | "approved" | "denied";
+
+export type DocumentOpenRequest = {
+  id: string;
+  tripId: string;
+  tripName: string;
+  documentKind: DocumentKind;
+  documentId: string;
+  documentName: string;
+  requesterEmail: string | null;
+  status: DocumentOpenStatus;
+  createdAt: string;
+  decidedAt: string | null;
+};
+
+const APPROVAL_WINDOW_MS = 10 * 60 * 1000;
+
+function ensureDocumentApprovals() {
+  return once("document-approvals", async () => {
+    if (await selectWorks("SELECT requester_email FROM document_open_requests LIMIT 0")) return;
+    if (await selectWorks("SELECT id FROM document_open_requests LIMIT 0")) {
+      await transaction(async () => {
+        await dbRun("SET LOCAL lock_timeout = '3s'");
+        await dbRun("ALTER TABLE document_open_requests ADD COLUMN IF NOT EXISTS requester_email text");
+      });
+      return;
+    }
+    await transaction(async () => {
+      await dbRun("SET LOCAL lock_timeout = '3s'");
+      await dbRun(
+        `CREATE TABLE IF NOT EXISTS document_open_requests (
+            id text primary key,
+            trip_id text not null references trips (id) on delete cascade,
+            document_kind text not null,
+            document_id text not null,
+            document_name text not null,
+            requester_email text,
+            status text not null,
+            created_at text not null,
+            decided_at text
+          )`,
+      );
+      await dbRun(
+        "CREATE INDEX IF NOT EXISTS idx_document_opens_doc ON document_open_requests (document_kind, document_id, status)",
+      );
+      await dbRun("ALTER TABLE document_open_requests ENABLE ROW LEVEL SECURITY");
+    });
+  });
+}
+
+function toOpenRequest(row: {
+  id: string;
+  trip_id: string;
+  destination: string;
+  document_kind: string;
+  document_id: string;
+  document_name: string;
+  requester_email: string | null;
+  status: string;
+  created_at: string;
+  decided_at: string | null;
+}): DocumentOpenRequest | null {
+  if (row.document_kind !== "stay" && row.document_kind !== "insurance") return null;
+  if (row.status !== "pending" && row.status !== "approved" && row.status !== "denied") return null;
+  return {
+    id: row.id,
+    tripId: row.trip_id,
+    tripName: row.destination,
+    documentKind: row.document_kind,
+    documentId: row.document_id,
+    documentName: row.document_name,
+    requesterEmail: row.requester_email,
+    status: row.status,
+    createdAt: row.created_at,
+    decidedAt: row.decided_at,
+  };
+}
+
+function approvalIsFresh(decidedAt: string | null) {
+  if (!decidedAt) return false;
+  const decided = Date.parse(decidedAt);
+  return Number.isFinite(decided) && Date.now() - decided < APPROVAL_WINDOW_MS;
+}
+
+export async function requestDocumentOpen(
+  kind: DocumentKind,
+  documentId: string,
+  tripId: string,
+  documentName: string,
+  requesterEmail: string | null,
+) {
+  await ensureDocumentApprovals();
+  const approved = await dbGet<{ id: string; decided_at: string | null }>(
+    `SELECT id, decided_at FROM document_open_requests
+     WHERE document_kind = ? AND document_id = ? AND status = 'approved'
+     ORDER BY decided_at DESC LIMIT 1`,
+    kind,
+    documentId,
+  );
+  if (approved && approvalIsFresh(approved.decided_at)) return { id: approved.id, status: "approved" as const };
+  const pending = await dbGet<{ id: string }>(
+    `SELECT id FROM document_open_requests
+     WHERE document_kind = ? AND document_id = ? AND status = 'pending'
+     ORDER BY created_at DESC LIMIT 1`,
+    kind,
+    documentId,
+  );
+  if (pending) {
+    if (requesterEmail) {
+      await dbRun("UPDATE document_open_requests SET requester_email = ? WHERE id = ?", requesterEmail, pending.id);
+    }
+    return { id: pending.id, status: "pending" as const };
+  }
+  const id = randomUUID();
+  await dbRun(
+    `INSERT INTO document_open_requests
+      (id, trip_id, document_kind, document_id, document_name, requester_email, status, created_at, decided_at)
+     VALUES (?, ?, ?, ?, ?, ?, 'pending', ?, NULL)`,
+    id,
+    tripId,
+    kind,
+    documentId,
+    documentName.slice(0, 200),
+    requesterEmail,
+    now(),
+  );
+  return { id, status: "pending" as const };
+}
+
+export async function documentOpenState(id: string, kind: DocumentKind, documentId: string) {
+  await ensureDocumentApprovals();
+  const row = await dbGet<{ status: string; decided_at: string | null; document_kind: string; document_id: string }>(
+    "SELECT status, decided_at, document_kind, document_id FROM document_open_requests WHERE id = ?",
+    id,
+  );
+  if (!row || row.document_kind !== kind || row.document_id !== documentId) return null;
+  if (row.status === "approved" && !approvalIsFresh(row.decided_at)) return "expired" as const;
+  if (row.status === "pending" || row.status === "approved" || row.status === "denied") return row.status;
+  return null;
+}
+
+export async function listPendingDocumentOpens(ownerId: string) {
+  await ensureDocumentApprovals();
+  const rows = await dbAll<{
+    id: string;
+    trip_id: string;
+    destination: string;
+    document_kind: string;
+    document_id: string;
+    document_name: string;
+    requester_email: string | null;
+    status: string;
+    created_at: string;
+    decided_at: string | null;
+  }>(
+    `SELECT r.id, r.trip_id, t.destination, r.document_kind, r.document_id, r.document_name, r.requester_email, r.status, r.created_at, r.decided_at
+     FROM document_open_requests r
+     JOIN trips t ON t.id = r.trip_id
+     WHERE t.owner_user_id = ? AND r.status = 'pending'
+     ORDER BY r.created_at`,
+    ownerId,
+  );
+  return rows.flatMap((row) => {
+    const request = toOpenRequest(row);
+    return request ? [request] : [];
+  });
+}
+
+export async function decideDocumentOpen(ownerId: string, id: string, decision: "approved" | "denied") {
+  await ensureDocumentApprovals();
+  const row = await dbGet<{ id: string }>(
+    `SELECT r.id FROM document_open_requests r
+     JOIN trips t ON t.id = r.trip_id
+     WHERE r.id = ? AND r.status = 'pending' AND t.owner_user_id = ?`,
+    id,
+    ownerId,
+  );
+  if (!row) return false;
+  await dbRun(
+    "UPDATE document_open_requests SET status = ?, decided_at = ? WHERE id = ? AND status = 'pending'",
+    decision,
+    now(),
+    id,
+  );
+  return true;
 }

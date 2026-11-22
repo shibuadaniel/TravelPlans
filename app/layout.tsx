@@ -25,8 +25,8 @@ export const viewport: Viewport = {
 export default async function RootLayout({ children }: { children: React.ReactNode }) {
   const user = await getCurrentUser();
   return (
-    <html lang="en">
-      <body>
+    <html lang="en" suppressHydrationWarning>
+      <body suppressHydrationWarning>
         <ThemeRegistry>
           <AppShell signedIn={Boolean(user)}>{children}</AppShell>
         </ThemeRegistry>

@@ -13,8 +13,8 @@ import { markShareUsed } from "@/lib/data";
 
 const WEEK = 60 * 60 * 24 * 7;
 
-export async function openGuestSession(tripId: string, shareId: string, gate: number) {
-  const jwt = await signGuestToken(tripId, shareId, gate);
+export async function openGuestSession(tripId: string, shareId: string, gate: number, email: string) {
+  const jwt = await signGuestToken(tripId, shareId, gate, email);
   const jar = await cookies();
   jar.set(GUEST_COOKIE, jwt, cookieOptions(WEEK));
   jar.set(GUEST_PIN_COOKIE, "", cookieOptions(0));

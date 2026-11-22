@@ -4,29 +4,33 @@ import Alert from "@mui/material/Alert";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { TitleChrome } from "@/components/title-chrome";
-import { createBlankTrip } from "@/lib/actions/trips";
+import { createBlankTrip, deleteTripAction } from "@/lib/actions/trips";
 
 export function NewTripStarter() {
   const router = useRouter();
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    const key = "where-are-we:new-trip";
-    if (sessionStorage.getItem(key) === "pending") return;
-    sessionStorage.setItem(key, "pending");
+    let cancel = false;
     void createBlankTrip().then((result) => {
-      sessionStorage.removeItem(key);
+      if (cancel) {
+        if (result.ok) void deleteTripAction(result.data.id);
+        return;
+      }
       if (!result.ok) {
         setError(result.error);
         return;
       }
       router.replace(`/trips/${result.data.id}/edit?step=overview`);
     });
+    return () => {
+      cancel = true;
+    };
   }, [router]);
 
   return (
     <>
-      <TitleChrome title="New trip" subtitle="Starting editor…" />
+      <TitleChrome backHref="/" backLabel="Back" title="New trip" subtitle="Starting editor…" />
       {error ? (
         <Alert severity="error" sx={{ m: 2 }}>
           {error}

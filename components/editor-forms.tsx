@@ -5,7 +5,9 @@ import DeleteIcon from "@mui/icons-material/Delete";
 import Alert from "@mui/material/Alert";
 import Box from "@mui/material/Box";
 import Button from "@mui/material/Button";
+import Checkbox from "@mui/material/Checkbox";
 import Chip from "@mui/material/Chip";
+import FormControlLabel from "@mui/material/FormControlLabel";
 import IconButton from "@mui/material/IconButton";
 import Stack from "@mui/material/Stack";
 import TextField from "@mui/material/TextField";
@@ -453,6 +455,7 @@ export function StaysForm({
                 onClick={() => {
                   delete files.current[stay.id];
                   clears.current.add(stay.id);
+                  update(stay.id, { requiresApproval: false });
                   setPicked((current) => ({ ...current, [stay.id]: "" }));
                   setClearedTick((value) => value + 1);
                 }}
@@ -461,6 +464,20 @@ export function StaysForm({
               </Button>
             ) : null}
           </Stack>
+          {pickedName || existingName ? (
+            <FormControlLabel
+              sx={{ mt: 1, ml: 0, alignItems: "flex-start" }}
+              control={
+                <Checkbox
+                  size="small"
+                  checked={stay.requiresApproval}
+                  onChange={(event) => update(stay.id, { requiresApproval: event.target.checked })}
+                  sx={{ pt: 0.25 }}
+                />
+              }
+              label="Ask me before a guest opens this"
+            />
+          ) : null}
           </Box>
         </FormGrid>
       ) : null}
@@ -487,7 +504,7 @@ export function InsuranceForm({
   onCancel: () => void;
 }) {
   const fileRef = useRef<HTMLInputElement>(null);
-  const [picked, setPicked] = useState<string[]>([]);
+  const [picked, setPicked] = useState<{ name: string; requiresApproval: boolean }[]>([]);
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -496,9 +513,16 @@ export function InsuranceForm({
     setError(null);
     const formData = new FormData();
     formData.set("payload", JSON.stringify(insurance));
+    formData.set(
+      "documents",
+      JSON.stringify(documents.map((document) => ({ id: document.id, requiresApproval: document.requiresApproval }))),
+    );
     const files = fileRef.current?.files;
     if (files) {
-      for (const file of files) formData.append("files", file);
+      for (const [index, file] of Array.from(files).entries()) {
+        formData.append("files", file);
+        formData.append("approvals", picked[index]?.requiresApproval ? "1" : "0");
+      }
     }
     const result = await saveInsuranceAction(tripId, formData);
     setPending(false);
@@ -541,17 +565,55 @@ export function InsuranceForm({
         <Typography variant="body2" color="text.secondary">No document uploaded.</Typography>
       ) : null}
       {documents.map((document) => (
-        <Box key={document.id} sx={{ display: "flex", alignItems: "center", gap: 1, minWidth: 0 }}>
+        <Box key={document.id} sx={{ display: "flex", alignItems: "flex-start", gap: 1, minWidth: 0 }}>
           <Box sx={{ flex: 1, minWidth: 0 }}>
             <DocumentLink href={`/api/documents/insurance/${document.id}`} name={document.documentName} />
+            <FormControlLabel
+              sx={{ ml: 0, alignItems: "flex-start" }}
+              control={
+                <Checkbox
+                  size="small"
+                  checked={document.requiresApproval}
+                  onChange={(event) =>
+                    setDocuments(
+                      documents.map((item) =>
+                        item.id === document.id ? { ...item, requiresApproval: event.target.checked } : item,
+                      ),
+                    )
+                  }
+                  sx={{ pt: 0.25 }}
+                />
+              }
+              label="Ask me before a guest opens this"
+            />
           </Box>
           <IconButton aria-label={`Delete ${document.documentName}`} disabled={pending} onClick={() => void removeDocument(document.id)}>
             <DeleteIcon fontSize="small" />
           </IconButton>
         </Box>
       ))}
-      {picked.map((name) => (
-        <Typography key={name} variant="body2">{name}</Typography>
+      {picked.map((file, index) => (
+        <Box key={`${file.name}-${index}`}>
+          <Typography variant="body2">{file.name}</Typography>
+          <FormControlLabel
+            sx={{ ml: 0, alignItems: "flex-start" }}
+            control={
+              <Checkbox
+                size="small"
+                checked={file.requiresApproval}
+                onChange={(event) =>
+                  setPicked((current) =>
+                    current.map((item, itemIndex) =>
+                      itemIndex === index ? { ...item, requiresApproval: event.target.checked } : item,
+                    ),
+                  )
+                }
+                sx={{ pt: 0.25 }}
+              />
+            }
+            label="Ask me before a guest opens this"
+          />
+        </Box>
       ))}
       <Button component="label" variant="outlined" startIcon={<AttachFileIcon />}>
         Upload
@@ -561,7 +623,9 @@ export function InsuranceForm({
           multiple
           type="file"
           accept="application/pdf,image/jpeg,image/png,image/webp,image/gif,.pdf,.jpg,.jpeg,.png,.webp,.gif"
-          onChange={(event) => setPicked(Array.from(event.target.files ?? []).map((file) => file.name))}
+          onChange={(event) =>
+            setPicked(Array.from(event.target.files ?? []).map((file) => ({ name: file.name, requiresApproval: false })))
+          }
         />
       </Button>
       <FormActions pending={pending} onCancel={onCancel} />

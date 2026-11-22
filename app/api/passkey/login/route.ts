@@ -15,7 +15,7 @@ import {
   guestEmailAllowed,
   shareIsActive,
   tripOwnerId,
-  tripSharePin,
+  tripShareGate,
   updateGuestPasskeyCounter,
 } from "@/lib/data";
 import { openGuestSession } from "@/lib/guest-session";
@@ -33,9 +33,9 @@ async function currentLink() {
   if (!(await shareIsActive(pending.shareId, pending.tripId))) {
     return { ok: false as const, error: "This link is no longer active." };
   }
-  const record = await tripSharePin(pending.tripId);
+  const record = await tripShareGate(pending.tripId);
   if (!record || record.gate !== pending.gate) {
-    return { ok: false as const, error: "The PIN changed. Open the share link again." };
+    return { ok: false as const, error: "Open the share link again." };
   }
   const ownerId = await tripOwnerId(pending.tripId);
   if (!ownerId) return { ok: false as const, error: "This link is no longer active." };
@@ -71,7 +71,7 @@ export async function PUT(request: Request) {
   }
   const stored = await findGuestPasskey(body.id);
   if (!stored || stored.ownerId !== ready.ownerId || stored.gate !== ready.gate) {
-    return json({ ok: false, error: "Enter your email and PIN on this device." }, 400);
+    return json({ ok: false, error: "Enter your email on this device." }, 400);
   }
   if (!(await guestEmailAllowed(ready.pending.tripId, stored.email))) {
     return json({ ok: false, error: "That email can no longer open this trip." }, 400);
@@ -92,7 +92,7 @@ export async function PUT(request: Request) {
     });
     if (!verified.verified) return json({ ok: false, error: "That passkey could not open this trip." }, 400);
     await updateGuestPasskeyCounter(stored.credentialId, verified.authenticationInfo.newCounter);
-    const href = await openGuestSession(ready.pending.tripId, ready.pending.shareId, ready.gate);
+    const href = await openGuestSession(ready.pending.tripId, ready.pending.shareId, ready.gate, stored.email);
     return json({ ok: true, href });
   } catch {
     return json({ ok: false, error: "That passkey could not open this trip." }, 400);

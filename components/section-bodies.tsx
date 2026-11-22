@@ -3,6 +3,7 @@ import Box from "@mui/material/Box";
 import Divider from "@mui/material/Divider";
 import Link from "@mui/material/Link";
 import Typography from "@mui/material/Typography";
+import { DocumentAccess } from "@/components/document-access";
 import { EmptyNote, Field, FieldGrid } from "@/components/fields";
 import {
   arrowRange,
@@ -101,7 +102,7 @@ export function CarsBody({ cars }: { cars: CarRental[] }) {
   );
 }
 
-export function StaysBody({ stays }: { stays: Stay[] }) {
+export function StaysBody({ stays, guest = false }: { stays: Stay[]; guest?: boolean }) {
   if (stays.length === 0) return <EmptyNote>No stays yet.</EmptyNote>;
   return (
     <>
@@ -112,7 +113,15 @@ export function StaysBody({ stays }: { stays: Stay[] }) {
             <Field label="Check-out" value={stay.checkOut ? formatShortDate(stay.checkOut) : ""} />
             <Field label="Address" value={stay.address} full />
           </FieldGrid>
-          {stay.documentName ? <DocumentLink href={`/api/documents/stay/${stay.id}`} name={stay.documentName} /> : null}
+          {stay.documentName ? (
+            <DocumentAccess
+              kind="stay"
+              id={stay.id}
+              name={stay.documentName}
+              requiresApproval={stay.requiresApproval}
+              guest={guest}
+            />
+          ) : null}
         </ItemBlock>
       ))}
     </>
@@ -122,9 +131,11 @@ export function StaysBody({ stays }: { stays: Stay[] }) {
 export function InsuranceBody({
   insurance,
   documents,
+  guest = false,
 }: {
   insurance: Insurance;
   documents: InsuranceDocument[];
+  guest?: boolean;
 }) {
   const empty =
     !insurance.provider.trim() &&
@@ -146,7 +157,14 @@ export function InsuranceBody({
         <Field label="Claim notes" value={insurance.claimNotes} full />
       </FieldGrid>
       {documents.map((document) => (
-        <DocumentLink key={document.id} href={`/api/documents/insurance/${document.id}`} name={document.documentName} />
+        <DocumentAccess
+          key={document.id}
+          kind="insurance"
+          id={document.id}
+          name={document.documentName}
+          requiresApproval={document.requiresApproval}
+          guest={guest}
+        />
       ))}
     </>
   );

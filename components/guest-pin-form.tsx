@@ -9,11 +9,9 @@ import Button from "@mui/material/Button";
 import Stack from "@mui/material/Stack";
 import TextField from "@mui/material/TextField";
 import Typography from "@mui/material/Typography";
-import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
-import { PinField } from "@/components/pin-field";
 import { ProfilePhoto } from "@/components/profile-photo";
-import { submitSharePin } from "@/lib/actions/share-pin";
+import { submitShareCode, submitShareEmail } from "@/lib/actions/share-pin";
 import { safeInternalPath } from "@/lib/format";
 
 type PasskeyOptions = PublicKeyCredentialCreationOptionsJSON | PublicKeyCredentialRequestOptionsJSON;
@@ -43,17 +41,21 @@ export function GuestPinForm({
   tripId,
   hasPhoto = false,
   needsPasskey = false,
+  needsCode = false,
+  codeEmail = "",
 }: {
   tripId: string;
   hasPhoto?: boolean;
   needsPasskey?: boolean;
+  needsCode?: boolean;
+  codeEmail?: string;
 }) {
-  const router = useRouter();
-  const [email, setEmail] = useState("");
-  const [pin, setPin] = useState("");
+  const [email, setEmail] = useState(codeEmail);
+  const [code, setCode] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
   const [savePasskey, setSavePasskey] = useState(needsPasskey);
+  const [awaitingCode, setAwaitingCode] = useState(needsCode && !needsPasskey);
   const [device, setDevice] = useState<DevicePasskey>("unknown");
 
   useEffect(() => {
@@ -65,8 +67,7 @@ export function GuestPinForm({
   }, [tripId]);
 
   function openTrip(href: string) {
-    router.push(safeInternalPath(href, "/"));
-    router.refresh();
+    window.location.assign(safeInternalPath(href, "/"));
   }
 
   async function readPasskey(path: string, credential: RegistrationResponseJSON | AuthenticationResponseJSON) {
@@ -132,7 +133,7 @@ export function GuestPinForm({
       const result = await readPasskey("/api/passkey/login", credential);
       setPending(false);
       if (!result.ok) {
-        if (result.error === "Enter your email and PIN on this device.") {
+        if (result.error === "Enter your email on this device.") {
           forgetPasskey(tripId);
           setDevice("new");
           setSavePasskey(false);
@@ -152,12 +153,26 @@ export function GuestPinForm({
   async function submit() {
     setPending(true);
     setError(null);
-    const result = await submitSharePin(email, pin);
+    const result = await submitShareEmail(email);
     setPending(false);
     if (!result.ok) {
       setError(result.error);
       return;
     }
+    setAwaitingCode(true);
+    setCode("");
+  }
+
+  async function submitCode() {
+    setPending(true);
+    setError(null);
+    const result = await submitShareCode(code);
+    setPending(false);
+    if (!result.ok) {
+      setError(result.error);
+      return;
+    }
+    setAwaitingCode(false);
     setSavePasskey(true);
   }
 
@@ -168,7 +183,11 @@ export function GuestPinForm({
         spacing={1.5}
         onSubmit={(event) => {
           event.preventDefault();
-          if (savePasskey || device === "saved") return;
+          if (savePasskey || (device === "saved" && !awaitingCode)) return;
+          if (awaitingCode) {
+            void submitCode();
+            return;
+          }
           void submit();
         }}
         sx={{
@@ -187,13 +206,15 @@ export function GuestPinForm({
             Where are we?
           </Typography>
         </Box>
-        {savePasskey || device !== "unknown" ? (
+        {savePasskey || awaitingCode || device !== "unknown" ? (
           <Typography variant="body2" color="text.secondary">
             {savePasskey
               ? "Save a passkey on this device to open the trip."
-              : device === "saved"
-                ? "Use the passkey saved on this device."
-                : "Enter the email and PIN from the person who sent this link."}
+              : awaitingCode
+                ? `Enter the code sent to ${email}.`
+                : device === "saved"
+                  ? "Use the passkey saved on this device."
+                  : "Enter the email from the person who sent this link. A code is sent to that inbox."}
           </Typography>
         ) : null}
         {error ? <Alert severity="error">{error}</Alert> : null}
@@ -201,6 +222,23 @@ export function GuestPinForm({
           <Button type="button" variant="contained" disabled={pending} onClick={() => void registerPasskey()}>
             {pending ? "Waiting…" : "Save passkey"}
           </Button>
+        ) : awaitingCode ? (
+          <>
+            <TextField
+              label="Code"
+              value={code}
+              onChange={(event) => setCode(event.target.value.replace(/\D/g, "").slice(0, 6))}
+              autoComplete="one-time-code"
+              slotProps={{ htmlInput: { inputMode: "numeric", maxLength: 6 } }}
+              required
+            />
+            <Button type="submit" variant="contained" disabled={pending}>
+              {pending ? "Checking…" : "Continue"}
+            </Button>
+            <Button type="button" variant="text" disabled={pending} onClick={() => { setAwaitingCode(false); setError(null); }}>
+              Use email again
+            </Button>
+          </>
         ) : device === "saved" ? (
           <Button type="button" variant="contained" disabled={pending} onClick={() => void usePasskey()}>
             {pending ? "Waiting…" : "Use a saved passkey"}
@@ -215,7 +253,6 @@ export function GuestPinForm({
               autoComplete="username"
               required
             />
-            <PinField label="PIN" value={pin} onChange={setPin} />
             <Button type="submit" variant="contained" disabled={pending}>
               {pending ? "Checking…" : "Continue"}
             </Button>

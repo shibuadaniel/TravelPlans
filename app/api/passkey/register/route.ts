@@ -16,7 +16,7 @@ import {
   saveGuestPasskey,
   shareIsActive,
   tripOwnerId,
-  tripSharePin,
+  tripShareGate,
 } from "@/lib/data";
 import { openGuestSession } from "@/lib/guest-session";
 import { encodeKey, passkeyUserId, webAuthnRelyingParty } from "@/lib/webauthn";
@@ -29,13 +29,13 @@ function json(body: unknown, status = 200) {
 
 async function currentEnrollment() {
   const enroll = await verifyGuestEnrollToken((await cookies()).get(GUEST_ENROLL_COOKIE)?.value);
-  if (!enroll) return { ok: false as const, error: "Enter your email and PIN again." };
+  if (!enroll) return { ok: false as const, error: "Enter your email again." };
   if (!(await shareIsActive(enroll.shareId, enroll.tripId))) {
     return { ok: false as const, error: "This link is no longer active." };
   }
-  const record = await tripSharePin(enroll.tripId);
+  const record = await tripShareGate(enroll.tripId);
   if (!record || record.gate !== enroll.gate) {
-    return { ok: false as const, error: "The PIN changed. Open the share link again." };
+    return { ok: false as const, error: "Open the share link again." };
   }
   if (!(await guestEmailAllowed(enroll.tripId, enroll.email))) {
     return { ok: false as const, error: "That email can no longer open this trip." };
@@ -97,7 +97,7 @@ export async function PUT(request: Request) {
       counter: credential.counter,
       gate: ready.enroll.gate,
     });
-    const href = await openGuestSession(ready.enroll.tripId, ready.enroll.shareId, ready.enroll.gate);
+    const href = await openGuestSession(ready.enroll.tripId, ready.enroll.shareId, ready.enroll.gate, ready.enroll.email);
     return json({ ok: true, href });
   } catch {
     return json({ ok: false, error: "That passkey could not be saved." }, 400);

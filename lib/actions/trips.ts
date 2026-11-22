@@ -11,7 +11,6 @@ import {
   getRole,
   insertBlankTrip,
   listShareLinks,
-  userHasSharePin,
   addGuestEmail,
   listMembers,
   normalizeGuestEmail,
@@ -165,13 +164,25 @@ export async function saveInsuranceAction(
     const files = formData
       .getAll("files")
       .filter((entry): entry is File => entry instanceof File && entry.size > 0);
+    const approvals = formData.getAll("approvals").map((value) => String(value) === "1");
+    let existing: { id: string; requiresApproval: boolean }[] = [];
+    try {
+      const parsed = JSON.parse(String(formData.get("documents") ?? "[]")) as { id?: string; requiresApproval?: boolean }[];
+      if (Array.isArray(parsed)) {
+        existing = parsed.flatMap((item) =>
+          typeof item.id === "string" ? [{ id: item.id, requiresApproval: Boolean(item.requiresApproval) }] : [],
+        );
+      }
+    } catch {
+      existing = [];
+    }
     const savedFiles = [];
-    for (const file of files) {
+    for (const [index, file] of files.entries()) {
       const storedFile = await storeFile(file);
-      savedFiles.push(storedFile);
+      savedFiles.push({ ...storedFile, requiresApproval: approvals[index] === true });
       stored.push(storedFile.key);
     }
-    const saved = await saveInsurance(tripId, insurance, savedFiles);
+    const saved = await saveInsurance(tripId, insurance, savedFiles, existing);
     revalidateTrip(tripId);
     return { ok: true, data: saved };
   } catch (error) {
@@ -231,9 +242,6 @@ export async function createShareAction(
 ): Promise<Result<{ url: string; links: ShareLinkInfo[] }>> {
   const access = await ownerShare(tripId);
   if (!access.ok) return access;
-  if (!(await userHasSharePin(access.userId))) {
-    return { ok: false, error: "Set a share PIN on your account before creating a link." };
-  }
   const token = await createShare(tripId);
   revalidateTrip(tripId);
   return {
@@ -247,9 +255,6 @@ export async function rotateShareAction(
 ): Promise<Result<{ url: string; links: ShareLinkInfo[] }>> {
   const access = await ownerShare(tripId);
   if (!access.ok) return access;
-  if (!(await userHasSharePin(access.userId))) {
-    return { ok: false, error: "Set a share PIN on your account before rotating a link." };
-  }
   const token = await rotateShare(tripId);
   revalidateTrip(tripId);
   return {

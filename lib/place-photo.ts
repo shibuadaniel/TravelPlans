@@ -251,28 +251,50 @@ async function photoForDestination(destination: string): Promise<PlacePhoto | nu
   return photo;
 }
 
+const placePhotosReady = globalThis as { travelPlacePhotos?: Promise<void> };
+
+function ensurePlacePhotos() {
+  placePhotosReady.travelPlacePhotos ??= (async () => {
+    try {
+      await dbRun("SELECT place_key FROM place_photos LIMIT 0");
+    } catch (error) {
+      const code = typeof error === "object" && error !== null && "code" in error ? String((error as { code?: string }).code) : "";
+      if (code !== "42P01") throw error;
+      await dbRun(`
+        CREATE TABLE IF NOT EXISTS place_photos (
+          place_key TEXT PRIMARY KEY,
+          image_url TEXT NOT NULL DEFAULT '',
+          credit TEXT NOT NULL DEFAULT '',
+          credit_url TEXT NOT NULL DEFAULT '',
+          fetched_at TEXT NOT NULL
+        )
+      `);
+    }
+  })().catch((error) => {
+    placePhotosReady.travelPlacePhotos = undefined;
+    throw error;
+  });
+  return placePhotosReady.travelPlacePhotos;
+}
+
 export async function withPlacePhotos(trips: TripListItem[]): Promise<TripListItem[]> {
-  await dbRun(`
-    CREATE TABLE IF NOT EXISTS place_photos (
-      place_key TEXT PRIMARY KEY,
-      image_url TEXT NOT NULL DEFAULT '',
-      credit TEXT NOT NULL DEFAULT '',
-      credit_url TEXT NOT NULL DEFAULT '',
-      fetched_at TEXT NOT NULL
-    )
-  `);
-  const keys = new Map<string, Promise<PlacePhoto | null>>();
-  for (const trip of trips) {
-    const key = placeKey(trip.destination);
-    if (key && !keys.has(key)) keys.set(key, photoForDestination(trip.destination));
+  try {
+    await ensurePlacePhotos();
+    const keys = new Map<string, Promise<PlacePhoto | null>>();
+    for (const trip of trips) {
+      const key = placeKey(trip.destination);
+      if (key && !keys.has(key)) keys.set(key, photoForDestination(trip.destination));
+    }
+    await Promise.all(keys.values());
+    const resolved = new Map<string, PlacePhoto | null>();
+    for (const [key, pending] of keys) {
+      resolved.set(key, await pending);
+    }
+    return trips.map((trip) => ({
+      ...trip,
+      photo: resolved.get(placeKey(trip.destination)) ?? null,
+    }));
+  } catch {
+    return trips;
   }
-  await Promise.all(keys.values());
-  const resolved = new Map<string, PlacePhoto | null>();
-  for (const [key, pending] of keys) {
-    resolved.set(key, await pending);
-  }
-  return trips.map((trip) => ({
-    ...trip,
-    photo: resolved.get(placeKey(trip.destination)) ?? null,
-  }));
 }

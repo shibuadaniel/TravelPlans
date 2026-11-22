@@ -1,9 +1,10 @@
 import "server-only";
 
 import { cookies } from "next/headers";
+import { cache } from "react";
 import { redirect } from "next/navigation";
 import { GUEST_COOKIE, verifyGuestToken } from "@/lib/auth-token";
-import { findUserById, getRole, shareIsActive, tripSharePin } from "@/lib/data";
+import { findUserById, getRole, shareIsActive, tripShareGate } from "@/lib/data";
 import { createClient } from "@/lib/supabase/server";
 
 export async function getCurrentUser() {
@@ -24,13 +25,13 @@ export async function readGuestSession() {
   return verifyGuestToken(token);
 }
 
-export async function guestCanRead(tripId: string) {
+export const guestCanRead = cache(async function guestCanRead(tripId: string) {
   const guest = await readGuestSession();
   if (!guest || guest.tripId !== tripId) return false;
   if (!(await shareIsActive(guest.shareId, tripId))) return false;
-  const pin = await tripSharePin(tripId);
-  return Boolean(pin && pin.gate === guest.gate);
-}
+  const gate = await tripShareGate(tripId);
+  return Boolean(gate && gate.gate === guest.gate);
+});
 
 export async function canReadTrip(tripId: string) {
   const user = await getCurrentUser();

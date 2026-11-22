@@ -43,6 +43,7 @@ export function blankStay(): Stay {
     documentName: null,
     documentMime: null,
     documentSize: null,
+    requiresApproval: false,
   };
 }
 

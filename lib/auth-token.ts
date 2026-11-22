@@ -4,6 +4,7 @@ export const USER_COOKIE = "session";
 export const GUEST_COOKIE = "guest_trip";
 export const GUEST_PIN_COOKIE = "guest_pin";
 export const GUEST_ENROLL_COOKIE = "guest_enroll";
+export const GUEST_CODE_COOKIE = "guest_code";
 export const GUEST_CHALLENGE_COOKIE = "guest_webauthn";
 
 function secret() {
@@ -44,8 +45,8 @@ export async function verifyUserToken(token: string | undefined) {
   }
 }
 
-export async function signGuestToken(tripId: string, shareId: string, gate: number) {
-  return new SignJWT({ typ: "guest", tripId, shareId, gate })
+export async function signGuestToken(tripId: string, shareId: string, gate: number, email: string) {
+  return new SignJWT({ typ: "guest", tripId, shareId, gate, email })
     .setProtectedHeader({ alg: "HS256" })
     .setIssuedAt()
     .setExpirationTime("7d")
@@ -57,9 +58,9 @@ export async function verifyGuestToken(token: string | undefined) {
   try {
     const { payload } = await jwtVerify(token, secret());
     if (payload.typ !== "guest") return null;
-    const { tripId, shareId, gate } = payload;
+    const { tripId, shareId, gate, email } = payload;
     if (typeof tripId !== "string" || typeof shareId !== "string" || typeof gate !== "number") return null;
-    return { tripId, shareId, gate };
+    return { tripId, shareId, gate, email: typeof email === "string" ? email : null };
   } catch {
     return null;
   }
@@ -99,6 +100,29 @@ export async function verifyGuestEnrollToken(token: string | undefined) {
   try {
     const { payload } = await jwtVerify(token, secret());
     if (payload.typ !== "guest-enroll") return null;
+    const { tripId, shareId, gate, email } = payload;
+    if (typeof tripId !== "string" || typeof shareId !== "string" || typeof gate !== "number" || typeof email !== "string") {
+      return null;
+    }
+    return { tripId, shareId, gate, email };
+  } catch {
+    return null;
+  }
+}
+
+export async function signGuestCodeToken(tripId: string, shareId: string, gate: number, email: string) {
+  return new SignJWT({ typ: "guest-code", tripId, shareId, gate, email })
+    .setProtectedHeader({ alg: "HS256" })
+    .setIssuedAt()
+    .setExpirationTime("10m")
+    .sign(secret());
+}
+
+export async function verifyGuestCodeToken(token: string | undefined) {
+  if (!token || !process.env.SESSION_SECRET) return null;
+  try {
+    const { payload } = await jwtVerify(token, secret());
+    if (payload.typ !== "guest-code") return null;
     const { tripId, shareId, gate, email } = payload;
     if (typeof tripId !== "string" || typeof shareId !== "string" || typeof gate !== "number" || typeof email !== "string") {
       return null;

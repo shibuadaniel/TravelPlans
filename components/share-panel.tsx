@@ -7,8 +7,6 @@ import Button from "@mui/material/Button";
 import Stack from "@mui/material/Stack";
 import TextField from "@mui/material/TextField";
 import Typography from "@mui/material/Typography";
-import Link from "@mui/material/Link";
-import NextLink from "next/link";
 import { useState } from "react";
 import { ConfirmDialog } from "@/components/confirm-dialog";
 import { SectionAccordion } from "@/components/section-accordion";
@@ -28,13 +26,11 @@ export function SharePanel({
   tripId,
   links,
   members,
-  pinReady,
   guestEmails,
 }: {
   tripId: string;
   links: ShareLinkInfo[];
   members: Member[];
-  pinReady: boolean;
   guestEmails: string[];
 }) {
   const [items, setItems] = useState(links);
@@ -154,21 +150,12 @@ export function SharePanel({
 
   return (
     <Stack spacing={1.5}>
-      {pinReady ? null : (
-        <Alert severity="info">
-          Set a share PIN on your{" "}
-          <Link component={NextLink} href="/account">
-            account
-          </Link>{" "}
-          before a link will open.
-        </Alert>
-      )}
       {error ? <Alert severity="error">{error}</Alert> : null}
 
       <SectionAccordion title="Share link" defaultExpanded>
         <Stack spacing={1.5}>
           <Typography variant="body2" color="text.secondary">
-            Add each email that may open this link. The first time, they enter your PIN and must save a passkey. That device uses the passkey after that. The same PIN covers every trip. Change it on Account if it leaks. That signs out anyone who already opened a link. The link is shown only once.
+            Add each email that may open this link. The first time, a code is sent to that inbox, and they must save a passkey. That device uses the passkey after that. The link is shown only once.
           </Typography>
           {freshUrl ? (
             <Box>
@@ -186,11 +173,11 @@ export function SharePanel({
             </Box>
           ) : null}
           <Stack direction="row" spacing={1} useFlexGap sx={{ flexWrap: "wrap" }}>
-            <Button variant="contained" disabled={pending || !pinReady} onClick={() => void create()}>
+            <Button variant="contained" disabled={pending} onClick={() => void create()}>
               Create share link
             </Button>
             {items.some((link) => !link.revokedAt) ? (
-              <Button variant="outlined" disabled={pending || !pinReady} onClick={() => setConfirm("rotate")}>
+              <Button variant="outlined" disabled={pending} onClick={() => setConfirm("rotate")}>
                 Rotate link
               </Button>
             ) : null}
@@ -230,7 +217,7 @@ export function SharePanel({
       <SectionAccordion title="Emails that can open the link">
         <Stack spacing={1.5}>
           <Typography variant="body2" color="text.secondary">
-            Only these addresses can enter the PIN. A new phone can use the email and PIN, then save its own passkey. A phone that already saved one is asked only for that passkey.
+            Only these addresses can open the link. A code is sent to the inbox before a passkey can be saved. A new phone uses the email and a new code, then saves its own passkey. A phone that already saved one is asked only for that passkey.
           </Typography>
           <Stack direction={{ xs: "column", sm: "row" }} spacing={1}>
             <TextField
