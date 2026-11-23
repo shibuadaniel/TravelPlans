@@ -266,8 +266,8 @@ export function FlightsForm({
           <TextField fullWidth label="Flight #" value={flight.flightNumber} onChange={(event) => update(flight.id, { flightNumber: event.target.value })} />
           <TextField fullWidth label="From" value={flight.fromAirport} onChange={(event) => update(flight.id, { fromAirport: event.target.value })} />
           <TextField fullWidth label="To" value={flight.toAirport} onChange={(event) => update(flight.id, { toAirport: event.target.value })} />
-          <TextField fullWidth label="Depart (local)" type="datetime-local" value={flight.departAt ?? ""} slotProps={dateSlot} onChange={(event) => update(flight.id, { departAt: event.target.value || null })} />
-          <TextField fullWidth label="Arrive (local)" type="datetime-local" value={flight.arriveAt ?? ""} slotProps={dateSlot} onChange={(event) => update(flight.id, { arriveAt: event.target.value || null })} />
+          <TextField fullWidth sx={{ ...wide, "& .MuiInputBase-input": { minWidth: 0 } }} label="Depart (local)" type="datetime-local" value={flight.departAt ?? ""} slotProps={dateSlot} onChange={(event) => update(flight.id, { departAt: event.target.value || null })} />
+          <TextField fullWidth sx={{ ...wide, "& .MuiInputBase-input": { minWidth: 0 } }} label="Arrive (local)" type="datetime-local" value={flight.arriveAt ?? ""} slotProps={dateSlot} onChange={(event) => update(flight.id, { arriveAt: event.target.value || null })} />
           <TextField fullWidth label="Confirmation" value={flight.confirmation} onChange={(event) => update(flight.id, { confirmation: event.target.value })} />
           <TextField fullWidth label="Passengers" value={flight.passengers} onChange={(event) => update(flight.id, { passengers: event.target.value })} />
           <TextField fullWidth label="Terminal / gate" value={flight.terminalGate} onChange={(event) => update(flight.id, { terminalGate: event.target.value })} />
