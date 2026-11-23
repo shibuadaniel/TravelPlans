@@ -7,31 +7,64 @@ import type { PlacePhoto, TripListItem } from "@/lib/types";
 const USER_AGENT = "WhereAreWe/1.0 (family trip briefing)";
 const DAY_MS = 24 * 60 * 60 * 1000;
 
-const ARCHITECTURE = [
-  "architecture",
-  "building",
+const NATURE = [
+  "nature",
+  "landscape",
+  "mountain",
+  "beach",
+  "coast",
+  "coastline",
+  "sea",
+  "ocean",
+  "lake",
+  "river",
+  "waterfall",
+  "forest",
+  "valley",
+  "cliff",
+  "bay",
+  "island",
+  "park",
+  "garden",
+  "hill",
+  "canyon",
+  "desert",
+  "glacier",
+  "fjord",
+  "reef",
+  "meadow",
+  "shore",
+  "volcano",
+  "scenery",
+  "vista",
+  "panorama",
+  "rainforest",
+  "jungle",
+  "gorge",
+];
+
+const RELIGIOUS = [
   "cathedral",
   "church",
   "chapel",
   "basilica",
-  "palace",
-  "castle",
-  "tower",
-  "bridge",
-  "museum",
   "monastery",
-  "facade",
-  "façade",
-  "street",
-  "alley",
-  "square",
-  "plaza",
-  "monument",
-  "skyline",
-  "historic",
-  "downtown",
-  "house",
-  "arch",
+  "temple",
+  "shrine",
+  "mosque",
+  "masjid",
+  "synagogue",
+  "gurdwara",
+  "mandir",
+  "pagoda",
+  "stupa",
+  "minaret",
+  "abbey",
+  "convent",
+  "parish",
+  "altar",
+  "worship",
+  "religious",
 ];
 
 const AVOID = [
@@ -39,17 +72,19 @@ const AVOID = [
   "selfie",
   "woman",
   "women",
-  "man ",
+  "man",
   "people",
   "person",
+  "crowd",
   "graffiti",
-  "flower",
-  "leaf",
+  "food",
   "dog",
   "cat",
-  "bird",
-  "food",
-  "pirate",
+  "interior",
+  "map",
+  "diagram",
+  "logo",
+  "flag",
 ];
 
 type PhotoRow = {
@@ -64,7 +99,7 @@ type Candidate = PlacePhoto & { score: number };
 function placeKey(destination: string) {
   const trimmed = destination.trim().toLowerCase();
   if (!trimmed || destinationKeyword(destination) === "Untitled trip") return "";
-  return trimmed;
+  return `${trimmed}|nature`;
 }
 
 function plainText(value: string) {
@@ -90,15 +125,27 @@ function hasWord(text: string, word: string) {
   return new RegExp(`(?:^|[^\\p{L}\\p{N}])${escaped}(?:$|[^\\p{L}\\p{N}])`, "iu").test(text);
 }
 
-function scoreTitle(title: string, place: string) {
-  let score = 0;
-  for (const word of ARCHITECTURE) {
-    if (hasWord(title, word)) score += 3;
+function isReligious(text: string) {
+  return RELIGIOUS.some((word) => hasWord(text, word));
+}
+
+function subjectHits(text: string) {
+  let hits = 0;
+  for (const word of NATURE) {
+    if (hasWord(text, word)) hits += 1;
   }
+  return hits;
+}
+
+function scoreTitle(text: string, place: string) {
+  if (isReligious(text)) return Number.NEGATIVE_INFINITY;
+  const hits = subjectHits(text);
+  if (hits === 0) return Number.NEGATIVE_INFINITY;
+  let score = hits * 3;
   for (const word of AVOID) {
-    if (hasWord(title, word)) score -= 5;
+    if (hasWord(text, word)) score -= 8;
   }
-  if (hasWord(title, place)) score += 2;
+  if (hasWord(text, place)) score += 2;
   return score;
 }
 
@@ -113,6 +160,7 @@ type CommonsPage = {
     extmetadata?: {
       LicenseShortName?: { value?: string };
       Artist?: { value?: string };
+      Categories?: { value?: string };
     };
   }[];
 };
@@ -140,9 +188,11 @@ async function commonsCandidates(params: URLSearchParams, place: string) {
     if (info.mime.includes("svg")) continue;
     if (!allowedLicense(license)) continue;
     const title = (page.title ?? "").replace(/^File:/, "");
+    const categories = plainText(info.extmetadata?.Categories?.value ?? "");
     const width = info.thumbwidth ?? 0;
     const height = info.thumbheight ?? 0;
-    let score = scoreTitle(title, place);
+    let score = scoreTitle(`${title} ${categories}`, place);
+    if (!Number.isFinite(score)) continue;
     if (width >= height && width > 0) score += 2;
     const artist = plainText(info.extmetadata?.Artist?.value ?? "") || "Wikimedia Commons";
     const shortLicense = plainText(license);
@@ -187,18 +237,22 @@ async function searchPlacePhoto(place: string): Promise<PlacePhoto | null> {
     });
     candidates.push(...(await commonsCandidates(nearby, place).catch(() => [])));
   }
-  const strong = candidates.filter((item) => item.score >= 2);
+  const strong = candidates.filter((item) => item.score >= 3);
   if (strong.length < 4) {
-    const keyword = new URLSearchParams({
-      generator: "search",
-      gsrsearch: `${place} architecture`,
-      gsrnamespace: "6",
-      gsrlimit: "12",
-    });
-    candidates.push(...(await commonsCandidates(keyword, place).catch(() => [])));
+    const searches = await Promise.all(
+      ["landscape", "nature"].map((topic) => {
+        const keyword = new URLSearchParams({
+          generator: "search",
+          gsrsearch: `${place} ${topic}`,
+          gsrnamespace: "6",
+          gsrlimit: "12",
+        });
+        return commonsCandidates(keyword, place).catch(() => []);
+      }),
+    );
+    for (const found of searches) candidates.push(...found);
   }
-  const pool = candidates.filter((item) => item.score >= 2);
-  const choices = pool.length > 0 ? pool : candidates.filter((item) => item.score >= 0);
+  const choices = candidates.filter((item) => item.score >= 3);
   if (choices.length === 0) return null;
   const best = Math.max(...choices.map((item) => item.score));
   const top = choices.filter((item) => item.score >= best - 1);
