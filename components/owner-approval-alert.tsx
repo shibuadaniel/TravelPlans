@@ -14,9 +14,13 @@ export function OwnerApprovalAlert({ signedIn }: { signedIn: boolean }) {
 
   useEffect(() => {
     if (!signedIn) return;
+    const timers = globalThis as { travelApprovalPoll?: number };
+    if (timers.travelApprovalPoll) window.clearInterval(timers.travelApprovalPoll);
     let stop = false;
+    let busy = false;
     async function load() {
-      if (document.hidden) return;
+      if (stop || busy || document.hidden) return;
+      busy = true;
       try {
         const response = await fetch("/api/approvals", { cache: "no-store" });
         if (!response.ok) return;
@@ -24,13 +28,16 @@ export function OwnerApprovalAlert({ signedIn }: { signedIn: boolean }) {
         if (!stop && body.ok && body.requests) setRequests(body.requests);
       } catch {
         // The next poll retries. A missed alert should not break the page.
+      } finally {
+        busy = false;
       }
     }
     void load();
-    const timer = window.setInterval(() => void load(), 4000);
+    timers.travelApprovalPoll = window.setInterval(() => void load(), 15000);
     return () => {
       stop = true;
-      window.clearInterval(timer);
+      if (timers.travelApprovalPoll) window.clearInterval(timers.travelApprovalPoll);
+      timers.travelApprovalPoll = undefined;
     };
   }, [signedIn]);
 

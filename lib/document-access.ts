@@ -26,9 +26,12 @@ function fileResponse(name: string, mime: string, bytes: Buffer) {
   });
 }
 
+const pageStyle =
+  "<style>html{color-scheme:light dark}body{margin:0;min-height:100dvh;display:flex;align-items:center;justify-content:center;background:#f4f7f8;color:#102a33;font-family:'Source Sans 3',sans-serif}main{width:min(100% - 32px,360px);background:#fff;border:1px solid #d5dee2;border-radius:16px;padding:24px}h1{font-size:1.25rem;margin:0 0 8px}#msg{margin:0;line-height:1.5}@media (prefers-color-scheme:dark){body{background:#0f171b;color:#e7eef1}main{background:#18262d;border-color:#2c3e46}}</style>";
+
 function page(title: string, body: string) {
   return new NextResponse(
-    `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${escapeHtml(title)}</title></head><body style="margin:0;min-height:100dvh;display:flex;align-items:center;justify-content:center;background:#f4f7f8;color:#102a33;font-family:'Source Sans 3',sans-serif"><main style="width:min(100% - 32px,360px);background:#fff;border:1px solid #d5dee2;border-radius:16px;padding:24px"><h1 style="font-size:1.25rem;margin:0 0 8px">${escapeHtml(title)}</h1><p id="msg" style="margin:0;line-height:1.5">${body}</p></main></body></html>`,
+    `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${escapeHtml(title)}</title>${pageStyle}</head><body><main><h1>${escapeHtml(title)}</h1><p id="msg">${body}</p></main></body></html>`,
     { headers: { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "private, no-store" } },
   );
 }
@@ -42,7 +45,7 @@ function waitingPage(name: string, requestId: string, pageUrl: URL, nonce: strin
   open.searchParams.delete("watch");
   const script = `<script nonce="${escapeHtml(nonce)}">async function tick(){const res=await fetch(${JSON.stringify(watch.pathname + watch.search)});const body=await res.json();if(body.status==="approved"){location.replace(${JSON.stringify(open.pathname + open.search)});return;}if(body.status==="denied"){document.getElementById("msg").textContent="The owner did not approve this document.";return;}setTimeout(tick,2000);}tick();</script>`;
   return new NextResponse(
-    `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Waiting for approval</title></head><body style="margin:0;min-height:100dvh;display:flex;align-items:center;justify-content:center;background:#f4f7f8;color:#102a33;font-family:'Source Sans 3',sans-serif"><main style="width:min(100% - 32px,360px);background:#fff;border:1px solid #d5dee2;border-radius:16px;padding:24px"><h1 style="font-size:1.25rem;margin:0 0 8px">Waiting for approval</h1><p id="msg" style="margin:0;line-height:1.5">The trip owner needs to approve ${escapeHtml(name)} before it opens.</p></main>${script}</body></html>`,
+    `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Waiting for approval</title>${pageStyle}</head><body><main><h1>Waiting for approval</h1><p id="msg">The trip owner needs to approve ${escapeHtml(name)} before it opens.</p></main>${script}</body></html>`,
     { headers: { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "private, no-store" } },
   );
 }

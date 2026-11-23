@@ -3,6 +3,10 @@
   --font-serif: "Source Serif 4", Georgia, "Times New Roman", serif;
 }
 
+html {
+  color-scheme: light dark;
+}
+
 html,
 body {
   max-width: 100%;

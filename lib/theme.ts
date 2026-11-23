@@ -6,12 +6,24 @@ const sans = 'var(--font-sans), "Source Sans 3", "Segoe UI", sans-serif';
 const serif = 'var(--font-serif), Georgia, "Times New Roman", serif';
 
 export const theme = createTheme({
-  palette: {
-    mode: "light",
-    primary: { main: "#0f4c5c" },
-    secondary: { main: "#e36414" },
-    background: { default: "#f4f7f8", paper: "#ffffff" },
-    text: { primary: "#102a33" },
+  cssVariables: { colorSchemeSelector: "media" },
+  colorSchemes: {
+    light: {
+      palette: {
+        primary: { main: "#0f4c5c", contrastText: "#ffffff" },
+        secondary: { main: "#e36414" },
+        background: { default: "#f4f7f8", paper: "#ffffff" },
+        text: { primary: "#102a33" },
+      },
+    },
+    dark: {
+      palette: {
+        primary: { main: "#9fd3de", contrastText: "#102a33" },
+        secondary: { main: "#f0823a" },
+        background: { default: "#0f171b", paper: "#18262d" },
+        text: { primary: "#e7eef1" },
+      },
+    },
   },
   shape: { borderRadius: 8 },
   typography: {
@@ -25,6 +37,11 @@ export const theme = createTheme({
     h6: { fontFamily: serif, fontWeight: 600 },
   },
   components: {
+    MuiAppBar: {
+      styleOverrides: {
+        colorPrimary: { backgroundColor: "#0f4c5c", color: "#ffffff" },
+      },
+    },
     MuiButton: {
       defaultProps: { size: "small", disableElevation: true },
       styleOverrides: {
