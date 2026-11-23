@@ -2,8 +2,7 @@
 
 import { createTheme } from "@mui/material/styles";
 
-const sans = 'var(--font-sans), "Source Sans 3", "Segoe UI", sans-serif';
-const serif = 'var(--font-serif), Georgia, "Times New Roman", serif';
+const sans = 'var(--font-sans), "Inter", "Segoe UI", sans-serif';
 
 export const theme = createTheme({
   cssVariables: { colorSchemeSelector: "media" },
@@ -29,12 +28,12 @@ export const theme = createTheme({
   typography: {
     fontFamily: sans,
     button: { textTransform: "none", fontWeight: 600 },
-    h1: { fontFamily: serif, fontWeight: 600 },
-    h2: { fontFamily: serif, fontWeight: 600 },
-    h3: { fontFamily: serif, fontWeight: 600 },
-    h4: { fontFamily: serif, fontWeight: 600 },
-    h5: { fontFamily: serif, fontWeight: 600 },
-    h6: { fontFamily: serif, fontWeight: 600 },
+    h1: { fontFamily: sans, fontWeight: 400 },
+    h2: { fontFamily: sans, fontWeight: 400 },
+    h3: { fontFamily: sans, fontWeight: 400 },
+    h4: { fontFamily: sans, fontWeight: 400 },
+    h5: { fontFamily: sans, fontWeight: 400 },
+    h6: { fontFamily: sans, fontWeight: 400 },
   },
   components: {
     MuiAppBar: {

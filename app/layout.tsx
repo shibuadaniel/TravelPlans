@@ -1,9 +1,8 @@
 import type { Metadata, Viewport } from "next";
-import "@fontsource/source-sans-3/400.css";
-import "@fontsource/source-sans-3/600.css";
-import "@fontsource/source-sans-3/700.css";
-import "@fontsource/source-serif-4/600.css";
-import "@fontsource/source-serif-4/700.css";
+import "@fontsource/inter/300.css";
+import "@fontsource/inter/400.css";
+import "@fontsource/inter/600.css";
+import "@fontsource/inter/700.css";
 import { AppShell } from "@/components/app-shell";
 import { ThemeRegistry } from "@/components/theme-registry";
 import { getCurrentUser } from "@/lib/current";

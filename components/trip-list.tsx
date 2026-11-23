@@ -19,29 +19,34 @@ export function TripList({ trips }: { trips: TripListItem[] }) {
   const router = useRouter();
   const [items, setItems] = useState(trips);
   const [pendingDelete, setPendingDelete] = useState<TripListItem | null>(null);
-  const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [hiddenPhotos, setHiddenPhotos] = useState<Record<string, boolean>>({});
 
   async function confirmDelete() {
     if (!pendingDelete) return;
-    setPending(true);
+    const trip = pendingDelete;
+    setPendingDelete(null);
     setError(null);
-    const result = await deleteTripAction(pendingDelete.id);
-    setPending(false);
-    if (!result.ok) {
-      setError(result.error);
+    setItems((current) => current.filter((item) => item.id !== trip.id));
+    try {
+      const result = await deleteTripAction(trip.id);
+      if (!result.ok) {
+        setItems((current) => [trip, ...current.filter((item) => item.id !== trip.id)]);
+        setError(result.error);
+        return;
+      }
+    } catch {
+      setItems((current) => [trip, ...current.filter((item) => item.id !== trip.id)]);
+      setError("Could not delete this trip.");
       return;
     }
-    setItems((current) => current.filter((trip) => trip.id !== pendingDelete.id));
-    setPendingDelete(null);
     router.refresh();
   }
 
   return (
     <Box sx={{ px: 2, pt: 2, pb: 12 }}>
-      <Typography variant="h4" component="h1" sx={{ mb: 2 }}>
-        Your trips
+      <Typography variant="h4" component="h1" sx={{ mb: 2, fontSize: "1.5rem" }}>
+        My trips
       </Typography>
       {error ? (
         <Typography color="error" variant="body2" sx={{ mb: 1 }}>
@@ -163,7 +168,6 @@ export function TripList({ trips }: { trips: TripListItem[] }) {
         title="Delete trip"
         body={`Delete ${pendingDelete ? destinationKeyword(pendingDelete.destination) : "this trip"}? This cannot be undone.`}
         confirmLabel="Delete"
-        pending={pending}
         onClose={() => setPendingDelete(null)}
         onConfirm={() => void confirmDelete()}
       />

@@ -560,7 +560,7 @@ export function InsuranceForm({
         <TextField fullWidth label="Phone" value={insurance.phone} onChange={(event) => setInsurance({ ...insurance, phone: event.target.value })} />
         <TextField fullWidth sx={wide} label="Claim notes" multiline minRows={3} value={insurance.claimNotes} onChange={(event) => setInsurance({ ...insurance, claimNotes: event.target.value })} />
       </FormGrid>
-      <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>Policy documents</Typography>
+      <Typography variant="subtitle2">Policy documents</Typography>
       {documents.length === 0 && picked.length === 0 ? (
         <Typography variant="body2" color="text.secondary">No document uploaded.</Typography>
       ) : null}

@@ -35,7 +35,10 @@ export function AppShell({
   children: React.ReactNode;
 }) {
   const pathname = usePathname();
-  const hide = pathname.startsWith("/guest");
+  const hide =
+    pathname.startsWith("/guest") ||
+    /^\/trips\/[^/]+$/.test(pathname) ||
+    /^\/trips\/[^/]+\/edit$/.test(pathname);
   const [open, setOpen] = useState(false);
   const initial = account ? accountInitial(account) : "";
   const photo = account?.hasPhoto ? "/api/avatar" : undefined;
@@ -56,7 +59,15 @@ export function AppShell({
               component={Link}
               href="/"
               variant="h6"
-              sx={{ color: "inherit", textDecoration: "none", fontSize: "1.25rem" }}
+              sx={{
+                color: "inherit",
+                textDecoration: "none",
+                fontFamily: 'var(--font-sans), "Inter", "Segoe UI", sans-serif',
+                fontWeight: 300,
+                fontSize: "1.5rem",
+                letterSpacing: "-0.03em",
+                lineHeight: 1,
+              }}
             >
               Reveal
             </Typography>

@@ -63,7 +63,7 @@ export function SectionAccordion({
         onChange={locked ? undefined : (_, isExpanded) => onChange?.(isExpanded)}
       >
         <AccordionSummary expandIcon={locked ? undefined : <ExpandMoreIcon />}>
-          <Typography sx={{ fontWeight: 700, flex: 1, minWidth: 0, pr: hasActions ? 10 : 0 }} noWrap>
+          <Typography sx={{ fontWeight: 400, flex: 1, minWidth: 0, pr: hasActions ? 10 : 0 }} noWrap>
             {label}
           </Typography>
         </AccordionSummary>

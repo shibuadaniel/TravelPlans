@@ -868,6 +868,8 @@ export async function deleteTrip(tripId: string) {
     "SELECT document_key FROM insurance_documents WHERE trip_id = ?",
     tripId,
   );
+  const clearRequests = await selectWorks("SELECT id FROM document_open_requests LIMIT 0");
+  const clearCodes = await selectWorks("SELECT id FROM guest_email_codes LIMIT 0");
   await transaction(async () => {
     await dbRun("DELETE FROM flights WHERE trip_id = ?", tripId);
     await dbRun("DELETE FROM car_rentals WHERE trip_id = ?", tripId);
@@ -877,6 +879,8 @@ export async function deleteTrip(tripId: string) {
     await dbRun("DELETE FROM insurance WHERE trip_id = ?", tripId);
     await dbRun("DELETE FROM share_links WHERE trip_id = ?", tripId);
     await dbRun("DELETE FROM trip_members WHERE trip_id = ?", tripId);
+    if (clearRequests) await dbRun("DELETE FROM document_open_requests WHERE trip_id = ?", tripId);
+    if (clearCodes) await dbRun("DELETE FROM guest_email_codes WHERE trip_id = ?", tripId);
     await dbRun("DELETE FROM trips WHERE id = ?", tripId);
   });
   for (const row of stayKeys) await removeStoredFile(row.document_key);

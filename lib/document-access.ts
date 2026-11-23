@@ -27,7 +27,7 @@ function fileResponse(name: string, mime: string, bytes: Buffer) {
 }
 
 const pageStyle =
-  "<style>html{color-scheme:light dark}body{margin:0;min-height:100dvh;display:flex;align-items:center;justify-content:center;background:#f4f7f8;color:#102a33;font-family:'Source Sans 3',sans-serif}main{width:min(100% - 32px,360px);background:#fff;border:1px solid #d5dee2;border-radius:16px;padding:24px}h1{font-size:1.25rem;margin:0 0 8px}#msg{margin:0;line-height:1.5}@media (prefers-color-scheme:dark){body{background:#0f171b;color:#e7eef1}main{background:#18262d;border-color:#2c3e46}}</style>";
+  "<style>html{color-scheme:light dark}body{margin:0;min-height:100dvh;display:flex;align-items:center;justify-content:center;background:#f4f7f8;color:#102a33;font-family:Inter,'Segoe UI',sans-serif}main{width:min(100% - 32px,360px);background:#fff;border:1px solid #d5dee2;border-radius:16px;padding:24px}h1{font-size:1.25rem;margin:0 0 8px}#msg{margin:0;line-height:1.5}@media (prefers-color-scheme:dark){body{background:#0f171b;color:#e7eef1}main{background:#18262d;border-color:#2c3e46}}</style>";
 
 function page(title: string, body: string) {
   return new NextResponse(

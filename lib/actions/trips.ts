@@ -225,7 +225,11 @@ export async function deleteTripAction(tripId: string): Promise<Result<{ href: s
   const access = await editor(tripId);
   if (!access.role) return { ok: false, error: "Trip not found." };
   if (access.role !== "owner") return { ok: false, error: "Only the owner can delete this trip." };
-  await deleteTrip(tripId);
+  try {
+    await deleteTrip(tripId);
+  } catch (error) {
+    return { ok: false, error: error instanceof Error ? error.message : "Could not delete this trip." };
+  }
   revalidatePath("/");
   return { ok: true, data: { href: "/" } };
 }
