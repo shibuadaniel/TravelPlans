@@ -3,7 +3,7 @@ import { notFound } from "next/navigation";
 import { ShareTripButton } from "@/components/share-trip-button";
 import { TripBriefing } from "@/components/trip-briefing";
 import { requireUser } from "@/lib/current";
-import { getAccessibleBundle, listGuestEmails, listMembers, listShareLinks } from "@/lib/data";
+import { getAccessibleBundle, itineraryHiddenFromShare, listGuestEmails, listMembers, listShareLinks } from "@/lib/data";
 import { flightStatuses } from "@/lib/flight-status";
 import { displayDestination } from "@/lib/format";
 
@@ -19,10 +19,10 @@ export default async function TripPage({ params }: { params: Promise<{ id: strin
   const user = await requireUser();
   const bundle = await getAccessibleBundle(user.id, id);
   if (!bundle) notFound();
-  const [shareLinks, members, guestEmails] =
+  const [shareLinks, members, guestEmails, hideItinerary] =
     bundle.trip.role === "owner"
-      ? await Promise.all([listShareLinks(id), listMembers(id), listGuestEmails(id)])
-      : [[], [], []];
+      ? await Promise.all([listShareLinks(id), listMembers(id), listGuestEmails(id), itineraryHiddenFromShare(id)])
+      : [[], [], [], false];
   return (
     <TripBriefing
       bundle={bundle}
@@ -34,6 +34,7 @@ export default async function TripPage({ params }: { params: Promise<{ id: strin
             links={shareLinks}
             members={members}
             guestEmails={guestEmails}
+            hideItinerary={hideItinerary}
           />
         ) : null
       }

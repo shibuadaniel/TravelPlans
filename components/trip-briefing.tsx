@@ -14,11 +14,13 @@ export function TripBriefing({
   mode,
   ownerTools = null,
   flightStatuses = {},
+  showItinerary = true,
 }: {
   bundle: TripBundle;
   mode: "owner" | "collaborator" | "guest";
   ownerTools?: ReactNode;
   flightStatuses?: Record<string, FlightStatusChip>;
+  showItinerary?: boolean;
 }) {
   const { trip } = bundle;
   const editable = mode !== "guest";
@@ -61,10 +63,11 @@ export function TripBriefing({
         <SectionAccordion key="insurance" title="Insurance" editHref={editable ? `/trips/${trip.id}/edit?step=insurance` : undefined}>
           <InsuranceBody insurance={bundle.insurance} documents={bundle.insuranceDocuments} guest={!editable} />
         </SectionAccordion>
-        {/* Built from the sections above plus events added on it, so it has no edit button. */}
-        <SectionAccordion key="itinerary" title="Itinerary">
-          <ItineraryTimeline bundle={bundle} editable={editable} flightStatuses={flightStatuses} />
-        </SectionAccordion>
+        {showItinerary ? (
+          <SectionAccordion key="itinerary" title="Itinerary">
+            <ItineraryTimeline bundle={bundle} editable={editable} flightStatuses={flightStatuses} />
+          </SectionAccordion>
+        ) : null}
       </Box>
     </>
   );

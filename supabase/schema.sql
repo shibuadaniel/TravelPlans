@@ -20,6 +20,7 @@ create table if not exists public.trips (
   travel_date text,
   return_date text,
   notes text not null default '',
+  share_hide_itinerary integer not null default 0,
   created_at text not null,
   updated_at text not null
 );

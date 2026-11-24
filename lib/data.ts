@@ -117,6 +117,55 @@ function ensureApprovalColumns() {
   });
 }
 
+function ensureShareItineraryColumn() {
+  return once("share-hide-itinerary", async () => {
+    if (await selectWorks("SELECT share_hide_itinerary FROM trips LIMIT 0")) return;
+    try {
+      await transaction(async () => {
+        await dbRun("SET LOCAL lock_timeout = '3s'");
+        await dbRun(
+          "ALTER TABLE trips ADD COLUMN IF NOT EXISTS share_hide_itinerary integer NOT NULL DEFAULT 0",
+        );
+      });
+    } catch (error) {
+      if (!isLockTimeout(error)) throw error;
+    }
+  });
+}
+
+export async function itineraryHiddenFromShare(tripId: string) {
+  await ensureShareItineraryColumn();
+  try {
+    const row = await dbGet<{ share_hide_itinerary: boolean | number | string | null }>(
+      "SELECT share_hide_itinerary FROM trips WHERE id = ?",
+      tripId,
+    );
+    return approvalOn(row?.share_hide_itinerary);
+  } catch (error) {
+    if (errorCode(error) === "42703") return false;
+    throw error;
+  }
+}
+
+export async function setItineraryHiddenFromShare(tripId: string, hidden: boolean) {
+  await ensureShareItineraryColumn();
+  try {
+    await dbRun(
+      "UPDATE trips SET share_hide_itinerary = ?, updated_at = ? WHERE id = ?",
+      hidden ? 1 : 0,
+      now(),
+      tripId,
+    );
+  } catch (error) {
+    if (errorCode(error) === "42703") {
+      throw new Error(
+        "Hiding the itinerary isn't set up yet. Run supabase/share-hide-itinerary.sql in the Supabase SQL editor, then try again.",
+      );
+    }
+    throw error;
+  }
+}
+
 function ensureSharePinColumns() {
   return once("share-pin-columns", async () => {
     if (await selectWorks("SELECT pin_hash, share_gate, avatar_key, avatar_mime FROM users LIMIT 0")) return;

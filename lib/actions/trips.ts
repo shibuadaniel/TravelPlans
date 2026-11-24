@@ -12,6 +12,7 @@ import {
   getRole,
   insertBlankTrip,
   listShareLinks,
+  setItineraryHiddenFromShare,
   listTripsForUser,
   addGuestEmail,
   listMembers,
@@ -72,6 +73,21 @@ async function origin() {
   const forwarded = headerList.get("x-forwarded-proto");
   const proto = localHost(host) ? "http" : forwarded ?? "https";
   return `${proto}://${host}`;
+}
+
+export async function setShareItineraryHiddenAction(
+  tripId: string,
+  hidden: boolean,
+): Promise<Result<{ hidden: boolean }>> {
+  const access = await editor(tripId);
+  if (access.role !== "owner") return { ok: false, error: "Only the owner can change sharing." };
+  try {
+    await setItineraryHiddenFromShare(tripId, hidden);
+    revalidateTrip(tripId);
+    return { ok: true, data: { hidden } };
+  } catch (error) {
+    return { ok: false, error: error instanceof Error ? error.message : "Could not update sharing." };
+  }
 }
 
 export async function createBlankTrip(): Promise<Result<{ id: string }>> {

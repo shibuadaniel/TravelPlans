@@ -50,12 +50,14 @@ export function TripEditor({
   shareLinks,
   members,
   guestEmails,
+  hideItinerary = false,
 }: {
   bundle: TripBundle;
   initialStep: EditStep;
   shareLinks: ShareLinkInfo[];
   members: Member[];
   guestEmails: string[];
+  hideItinerary?: boolean;
 }) {
   const router = useRouter();
   const role = bundle.trip.role;
@@ -280,7 +282,13 @@ export function TripEditor({
             expanded={expanded === "share"}
             onChange={(open) => setExpanded(open ? "share" : false)}
           >
-            <SharePanel tripId={bundle.trip.id} links={shareLinks} members={members} guestEmails={guestEmails} />
+            <SharePanel
+              tripId={bundle.trip.id}
+              links={shareLinks}
+              members={members}
+              guestEmails={guestEmails}
+              hideItinerary={hideItinerary}
+            />
           </SectionAccordion>
         ) : null}
       </Box>

@@ -16,11 +16,13 @@ export function ShareTripButton({
   links,
   members,
   guestEmails,
+  hideItinerary = false,
 }: {
   tripId: string;
   links: ShareLinkInfo[];
   members: Member[];
   guestEmails: string[];
+  hideItinerary?: boolean;
 }) {
   const [open, setOpen] = useState(false);
 
@@ -33,7 +35,13 @@ export function ShareTripButton({
         <DialogTitle>Share trip</DialogTitle>
         <DialogContent>
           {open ? (
-            <SharePanel tripId={tripId} links={links} members={members} guestEmails={guestEmails} />
+            <SharePanel
+              tripId={tripId}
+              links={links}
+              members={members}
+              guestEmails={guestEmails}
+              hideItinerary={hideItinerary}
+            />
           ) : null}
         </DialogContent>
         <DialogActions>

@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { InvalidShare } from "@/components/invalid-share";
 import { TripBriefing } from "@/components/trip-briefing";
 import { guestCanRead } from "@/lib/current";
-import { getBundle } from "@/lib/data";
+import { getBundle, itineraryHiddenFromShare } from "@/lib/data";
 import { flightStatuses } from "@/lib/flight-status";
 import { displayDestination } from "@/lib/format";
 
@@ -24,5 +24,14 @@ export default async function GuestTripPage({ params }: { params: Promise<{ trip
   }
   const bundle = await getBundle(tripId, "guest");
   if (!bundle) return <InvalidShare />;
-  return <TripBriefing bundle={bundle} mode="guest" flightStatuses={await flightStatuses(bundle.flights)} />;
+  const hideItinerary = await itineraryHiddenFromShare(tripId);
+  const shared = hideItinerary ? { ...bundle, events: [] } : bundle;
+  return (
+    <TripBriefing
+      bundle={shared}
+      mode="guest"
+      showItinerary={!hideItinerary}
+      flightStatuses={await flightStatuses(bundle.flights)}
+    />
+  );
 }

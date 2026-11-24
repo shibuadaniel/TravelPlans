@@ -4,10 +4,11 @@ import ContentCopyIcon from "@mui/icons-material/ContentCopy";
 import Alert from "@mui/material/Alert";
 import Box from "@mui/material/Box";
 import Button from "@mui/material/Button";
+import Checkbox from "@mui/material/Checkbox";
 import Stack from "@mui/material/Stack";
 import TextField from "@mui/material/TextField";
 import Typography from "@mui/material/Typography";
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { ConfirmDialog } from "@/components/confirm-dialog";
 import { SectionAccordion } from "@/components/section-accordion";
 import {
@@ -18,6 +19,7 @@ import {
   removeGuestEmailAction,
   revokeShareAction,
   rotateShareAction,
+  setShareItineraryHiddenAction,
 } from "@/lib/actions/trips";
 import { formatDateTime } from "@/lib/format";
 import type { Member, ShareLinkInfo } from "@/lib/types";
@@ -27,21 +29,25 @@ export function SharePanel({
   links,
   members,
   guestEmails,
+  hideItinerary = false,
 }: {
   tripId: string;
   links: ShareLinkInfo[];
   members: Member[];
   guestEmails: string[];
+  hideItinerary?: boolean;
 }) {
   const [items, setItems] = useState(links);
   const [people, setPeople] = useState(members);
   const [allowed, setAllowed] = useState(guestEmails);
+  const [itineraryHidden, setItineraryHidden] = useState(hideItinerary);
   const [freshUrl, setFreshUrl] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
   const [email, setEmail] = useState("");
   const [guestEmail, setGuestEmail] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
+  const itineraryRequest = useRef(0);
   const [confirm, setConfirm] = useState<"rotate" | { type: "revoke"; id: string } | { type: "remove"; userId: string; name: string } | null>(null);
 
   async function create() {
@@ -94,6 +100,18 @@ export function SharePanel({
       setCopied(true);
     } catch {
       setError("Select the link and copy it manually.");
+    }
+  }
+
+  async function toggleItinerary(hidden: boolean) {
+    const request = ++itineraryRequest.current;
+    setItineraryHidden(hidden);
+    setError(null);
+    const result = await setShareItineraryHiddenAction(tripId, hidden);
+    if (request !== itineraryRequest.current) return;
+    if (!result.ok) {
+      setItineraryHidden(!hidden);
+      setError(result.error);
     }
   }
 
@@ -157,6 +175,18 @@ export function SharePanel({
           <Typography variant="body2" color="text.secondary">
             Add each email that may open this link. The first time, a code is sent to that inbox, and they must save a passkey. That device uses the passkey after that. The link is shown only once.
           </Typography>
+          <Box component="label" sx={{ display: "flex", alignItems: "center", m: 0 }}>
+            <Checkbox
+              size="small"
+              disableRipple
+              checked={itineraryHidden}
+              onChange={(event) => void toggleItinerary(event.target.checked)}
+              sx={{ p: 0, m: 0, mr: 0.75, ml: "-3px", "& .MuiSvgIcon-root": { fontSize: 24 } }}
+            />
+            <Typography variant="body2" component="span" color="text.secondary">
+              Hide the itinerary on the shared link
+            </Typography>
+          </Box>
           {freshUrl ? (
             <Box>
               <Typography variant="body2" sx={{ mb: 1 }}>
