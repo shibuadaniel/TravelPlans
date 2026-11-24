@@ -214,7 +214,7 @@ export function GuestPinForm({
                 ? `Enter the code sent to ${email}.`
                 : device === "saved"
                   ? "Use the passkey saved on this device."
-                  : "Enter the email from the person who sent this link. A code is sent to that inbox."}
+                  : "Enter your email address. If it is approved for this trip, a code is sent there. After the code is verified, you can save a passkey on this device."}
           </Typography>
         ) : null}
         {error ? <Alert severity="error">{error}</Alert> : null}

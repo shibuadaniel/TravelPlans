@@ -46,6 +46,7 @@ export function SharePanel({
   const [email, setEmail] = useState("");
   const [guestEmail, setGuestEmail] = useState("");
   const [error, setError] = useState<string | null>(null);
+  const [sentTo, setSentTo] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
   const itineraryRequest = useRef(0);
   const [confirm, setConfirm] = useState<"rotate" | { type: "revoke"; id: string } | { type: "remove"; userId: string; name: string } | null>(null);
@@ -116,15 +117,27 @@ export function SharePanel({
   }
 
   async function addAllowedEmail() {
+    const address = guestEmail.trim();
     setPending(true);
     setError(null);
-    const result = await addGuestEmailAction(tripId, guestEmail);
+    setSentTo(null);
+    const result = await addGuestEmailAction(tripId, address, freshUrl);
     setPending(false);
     if (!result.ok) {
       setError(result.error);
       return;
     }
-    setAllowed(result.data);
+    setAllowed(result.data.emails);
+    setItems(result.data.links);
+    if (result.data.url) {
+      setFreshUrl(result.data.url);
+      setCopied(false);
+    }
+    if (result.data.sendError) {
+      setError(`${address} can open the link, but the email could not be sent. ${result.data.sendError}`);
+      return;
+    }
+    setSentTo(address);
     setGuestEmail("");
   }
 
@@ -169,6 +182,7 @@ export function SharePanel({
   return (
     <Stack spacing={1.5}>
       {error ? <Alert severity="error">{error}</Alert> : null}
+      {sentTo ? <Alert severity="success">Sent the share link to {sentTo}.</Alert> : null}
 
       <SectionAccordion title="Share link" defaultExpanded>
         <Stack spacing={1.5}>
@@ -247,7 +261,7 @@ export function SharePanel({
       <SectionAccordion title="Emails that can open the link">
         <Stack spacing={1.5}>
           <Typography variant="body2" color="text.secondary">
-            Only these addresses can open the link. A code is sent to the inbox before a passkey can be saved. A new phone uses the email and a new code, then saves its own passkey. A phone that already saved one is asked only for that passkey.
+            Only these addresses can open the link. Adding one emails them the share link. A code is sent to the inbox before a passkey can be saved. A new phone uses the email and a new code, then saves its own passkey. A phone that already saved one is asked only for that passkey.
           </Typography>
           <Stack direction={{ xs: "column", sm: "row" }} spacing={1}>
             <TextField
@@ -258,7 +272,7 @@ export function SharePanel({
               autoComplete="off"
             />
             <Button variant="outlined" disabled={pending || !guestEmail.trim()} onClick={() => void addAllowedEmail()} sx={{ flexShrink: 0 }}>
-              Add
+              Add and send
             </Button>
           </Stack>
           {allowed.length === 0 ? (

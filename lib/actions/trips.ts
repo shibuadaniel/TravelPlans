@@ -15,8 +15,11 @@ import {
   setItineraryHiddenFromShare,
   listTripsForUser,
   addGuestEmail,
+  createInviteShare,
+  findActiveShare,
   listMembers,
   normalizeGuestEmail,
+  tripShareSummary,
   removeGuestEmail,
   removeCollaborator,
   revokeShare,
@@ -31,6 +34,7 @@ import {
   type StayWrite,
 } from "@/lib/data";
 import { calendarDayNumber, destinationKeyword, endsBeforeStart, travelReturnLabel } from "@/lib/format";
+import { sendShareLink } from "@/lib/mail";
 import { removeStoredFile, storeFile } from "@/lib/uploads";
 import type {
   CarRental,
@@ -351,15 +355,56 @@ export async function revokeShareAction(tripId: string, linkId: string): Promise
   return { ok: true, data: await listShareLinks(tripId) };
 }
 
-export async function addGuestEmailAction(tripId: string, email: string): Promise<Result<string[]>> {
+function tokenFromShareUrl(url: string | null | undefined, base: string) {
+  if (!url) return null;
+  try {
+    const parsed = new URL(url);
+    if (parsed.origin !== new URL(base).origin) return null;
+    const match = /^\/s\/([^/]+)$/.exec(parsed.pathname);
+    return match?.[1] ?? null;
+  } catch {
+    return null;
+  }
+}
+
+export async function addGuestEmailAction(
+  tripId: string,
+  email: string,
+  knownUrl?: string | null,
+): Promise<Result<{ emails: string[]; url: string | null; links: ShareLinkInfo[]; sendError: string | null }>> {
   const access = await ownerShare(tripId);
   if (!access.ok) return access;
   const normalized = normalizeGuestEmail(email);
   if (!normalized) return { ok: false, error: "Enter a valid email address." };
   try {
     const emails = await addGuestEmail(tripId, normalized);
+    const base = await origin();
+    let url: string | null = null;
+    let revealUrl = false;
+    const knownToken = tokenFromShareUrl(knownUrl, base);
+    if (knownToken) {
+      const share = await findActiveShare(knownToken);
+      if (share?.tripId === tripId) url = `${base}/s/${knownToken}`;
+    }
+    if (!url) {
+      const active = (await listShareLinks(tripId)).some((link) => !link.revokedAt);
+      const token = active ? await createInviteShare(tripId) : await createShare(tripId);
+      url = `${base}/s/${token}`;
+      revealUrl = !active;
+    }
+    const summary = await tripShareSummary(tripId);
+    const tripName = destinationKeyword(summary?.destination ?? "");
+    let sendError: string | null = null;
+    try {
+      await sendShareLink(normalized, url, tripName, summary?.ownerName ?? "Someone");
+    } catch (error) {
+      sendError = error instanceof Error ? error.message : "The share email could not be sent.";
+    }
     revalidateTrip(tripId);
-    return { ok: true, data: emails };
+    return {
+      ok: true,
+      data: { emails, url: revealUrl ? url : null, links: await listShareLinks(tripId), sendError },
+    };
   } catch (error) {
     return { ok: false, error: error instanceof Error ? error.message : "Could not add that email." };
   }

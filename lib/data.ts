@@ -1076,16 +1076,22 @@ export function hashToken(token: string) {
   return createHash("sha256").update(token).digest("hex");
 }
 
-async function insertShare(tripId: string) {
+async function insertShare(tripId: string, label: string | null = null) {
   const token = randomBytes(12).toString("base64url");
   await dbRun(
-    "INSERT INTO share_links (id, trip_id, token_hash, label, created_at, revoked_at, last_used_at) VALUES (?, ?, ?, NULL, ?, NULL, NULL)",
+    "INSERT INTO share_links (id, trip_id, token_hash, label, created_at, revoked_at, last_used_at) VALUES (?, ?, ?, ?, ?, NULL, NULL)",
     randomUUID(),
     tripId,
     hashToken(token),
+    label,
     now(),
   );
   return token;
+}
+
+/** A second link mailed to one person. The owner's link stays the one shown in the app. */
+export async function createInviteShare(tripId: string) {
+  return insertShare(tripId, "email");
 }
 
 export async function createShare(tripId: string) {
@@ -1106,12 +1112,13 @@ export async function rotateShare(tripId: string) {
 }
 
 export async function revokeShare(tripId: string, linkId: string) {
-  await dbRun(
-    "UPDATE share_links SET revoked_at = ? WHERE id = ? AND trip_id = ? AND revoked_at IS NULL",
-    now(),
+  const active = await dbGet<{ id: string }>(
+    "SELECT id FROM share_links WHERE id = ? AND trip_id = ? AND revoked_at IS NULL",
     linkId,
     tripId,
   );
+  if (!active) return;
+  await dbRun("UPDATE share_links SET revoked_at = ? WHERE trip_id = ? AND revoked_at IS NULL", now(), tripId);
 }
 
 function toShareLink(row: { id: string; created_at: string; last_used_at: string | null; revoked_at: string | null }): ShareLinkInfo {
@@ -1126,7 +1133,7 @@ function toShareLink(row: { id: string; created_at: string; last_used_at: string
 export async function listShareLinks(tripId: string): Promise<ShareLinkInfo[]> {
   const active = await dbGet<{ id: string; created_at: string; last_used_at: string | null; revoked_at: string | null }>(
     `SELECT id, created_at, last_used_at, revoked_at FROM share_links
-     WHERE trip_id = ? AND revoked_at IS NULL ORDER BY created_at DESC LIMIT 1`,
+     WHERE trip_id = ? AND revoked_at IS NULL AND label IS NULL ORDER BY created_at DESC LIMIT 1`,
     tripId,
   );
   const revoked = await dbGet<{ id: string; created_at: string; last_used_at: string | null; revoked_at: string | null }>(
@@ -1194,6 +1201,18 @@ export function normalizeGuestEmail(value: string) {
   const email = value.trim().toLowerCase();
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) || email.length > 200) return null;
   return email;
+}
+
+export async function tripShareSummary(tripId: string) {
+  const row = await dbGet<{ destination: string; name: string | null; email: string }>(
+    `SELECT t.destination, u.name, u.email
+     FROM trips t JOIN users u ON u.id = t.owner_user_id
+     WHERE t.id = ?`,
+    tripId,
+  );
+  if (!row) return null;
+  const ownerName = row.name?.trim() || row.email;
+  return { destination: row.destination, ownerName };
 }
 
 export async function listGuestEmails(tripId: string) {
