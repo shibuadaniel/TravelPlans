@@ -194,11 +194,11 @@ const flightSource: ItinerarySource = ({ flights }) => {
     }
   }
 
-  // The first flight's takeoff from home and the last flight's landing back
-  // home may fall outside arrival..departure; that's expected, not an error.
+  // The last flight's landing back home may fall outside the trip; that's
+  // expected, not an error. The first departure stays, so the itinerary can
+  // start with it.
   const first = dated[0];
   const last = dated.length > 1 ? dated[dated.length - 1] : undefined;
-  if (first) optionalOutsideTrip.add(`flight-depart-${first.flight.id}`);
   if (last) optionalOutsideTrip.add(`flight-arrive-${last.flight.id}`);
 
   const find = (id: string) => points.find((p) => p.id === id);
@@ -346,8 +346,11 @@ export function buildItinerary(bundle: TripBundle, sources: ItinerarySource[] = 
   }
 
   // Fall back to the trip's own dates, then to whatever the entries cover.
+  // The outbound departure opens the itinerary even when the trip date is the arrival.
   const pointDates = points.map((p) => p.date);
+  const outbound = minKey(points.filter((point) => point.kind === "flight-depart").map((point) => point.date));
   let start: DateKey | null = arrival ?? toDateKey(bundle.trip.travelDate) ?? minKey(pointDates);
+  if (outbound && (!start || outbound < start)) start = outbound;
   let end: DateKey | null = departure ?? toDateKey(bundle.trip.returnDate) ?? maxKey(pointDates);
 
   if (start && end && end < start) {

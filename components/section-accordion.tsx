@@ -10,6 +10,7 @@ import Box from "@mui/material/Box";
 import IconButton from "@mui/material/IconButton";
 import Typography from "@mui/material/Typography";
 import Link from "next/link";
+import { useState } from "react";
 
 const accordionSx = {
   border: "1px solid",
@@ -49,7 +50,8 @@ export function SectionAccordion({
 }) {
   const label = count === undefined ? title : `${title} (${count})`;
   const controlled = expanded !== undefined;
-
+  const [uncontrolledOpen, setUncontrolledOpen] = useState(Boolean(defaultExpanded));
+  const open = locked || (controlled ? expanded : uncontrolledOpen);
   const hasActions = Boolean(onAdd || editHref || onEdit);
 
   return (
@@ -58,9 +60,15 @@ export function SectionAccordion({
         disableGutters
         elevation={0}
         sx={{ ...accordionSx, mb: 0, "&.Mui-expanded": { m: 0 } }}
-        expanded={locked ? true : controlled ? expanded : undefined}
-        defaultExpanded={locked || controlled ? undefined : defaultExpanded}
-        onChange={locked ? undefined : (_, isExpanded) => onChange?.(isExpanded)}
+        expanded={open}
+        onChange={
+          locked
+            ? undefined
+            : (_, isExpanded) => {
+                if (!controlled) setUncontrolledOpen(isExpanded);
+                onChange?.(isExpanded);
+              }
+        }
       >
         <AccordionSummary expandIcon={locked ? undefined : <ExpandMoreIcon />}>
           <Typography sx={{ fontWeight: 400, flex: 1, minWidth: 0, pr: hasActions ? 10 : 0 }} noWrap>

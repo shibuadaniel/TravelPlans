@@ -36,11 +36,8 @@ export function TripBriefing({
         actions={mode === "owner" ? ownerTools : null}
       />
       <Box sx={{ px: 2, pt: 1 }}>
-        {/* Built from the sections below plus events added on it, so it has no edit button. */}
-        <SectionAccordion title="Itinerary" defaultExpanded>
-          <ItineraryTimeline bundle={bundle} editable={editable} />
-        </SectionAccordion>
         <SectionAccordion
+          key="flights"
           title="Flights"
           defaultExpanded
           editHref={editable ? `/trips/${trip.id}/edit?step=flights` : undefined}
@@ -48,19 +45,25 @@ export function TripBriefing({
           <FlightsBody flights={bundle.flights} statuses={flightStatuses} />
         </SectionAccordion>
         <SectionAccordion
+          key="cars"
           title="Car rentals"
           editHref={editable ? `/trips/${trip.id}/edit?step=cars` : undefined}
         >
           <CarsBody cars={bundle.carRentals} />
         </SectionAccordion>
         <SectionAccordion
+          key="stays"
           title="Stays"
           editHref={editable ? `/trips/${trip.id}/edit?step=stays` : undefined}
         >
           <StaysBody stays={bundle.stays} guest={!editable} />
         </SectionAccordion>
-        <SectionAccordion title="Insurance" editHref={editable ? `/trips/${trip.id}/edit?step=insurance` : undefined}>
+        <SectionAccordion key="insurance" title="Insurance" editHref={editable ? `/trips/${trip.id}/edit?step=insurance` : undefined}>
           <InsuranceBody insurance={bundle.insurance} documents={bundle.insuranceDocuments} guest={!editable} />
+        </SectionAccordion>
+        {/* Built from the sections above plus events added on it, so it has no edit button. */}
+        <SectionAccordion key="itinerary" title="Itinerary">
+          <ItineraryTimeline bundle={bundle} editable={editable} flightStatuses={flightStatuses} />
         </SectionAccordion>
       </Box>
     </>
