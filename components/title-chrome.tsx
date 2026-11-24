@@ -1,6 +1,7 @@
 "use client";
 
 import ArrowBackIcon from "@mui/icons-material/ArrowBack";
+import EditIcon from "@mui/icons-material/Edit";
 import Box from "@mui/material/Box";
 import IconButton from "@mui/material/IconButton";
 import Typography from "@mui/material/Typography";
@@ -17,6 +18,7 @@ export function TitleChrome({
   actions,
   avatarSrc,
   tint = false,
+  dateEditHref,
 }: {
   backHref?: string;
   onBack?: () => void;
@@ -26,6 +28,7 @@ export function TitleChrome({
   actions?: React.ReactNode;
   avatarSrc?: string;
   tint?: boolean;
+  dateEditHref?: string;
 }) {
   return (
     <Box
@@ -47,9 +50,9 @@ export function TitleChrome({
           borderRadius: 2,
           display: "flex",
           alignItems: "center",
-          gap: 2,
-          px: 2,
-          py: 1.5,
+          gap: 1.25,
+          px: 1.5,
+          py: 1,
           ...(tint ? theme.applyStyles("dark", { bgcolor: "#243e48" }) : {}),
         })}
       >
@@ -73,10 +76,26 @@ export function TitleChrome({
         >
           {displayDestination(title)}
         </Typography>
-        {subtitle ? (
-          <Typography variant="body2" color="text.secondary" noWrap>
-            {subtitle}
-          </Typography>
+        {subtitle || dateEditHref ? (
+          <Box sx={{ display: "flex", alignItems: "center", gap: 0.25, minWidth: 0 }}>
+            {subtitle ? (
+              <Typography variant="body2" color="text.secondary" noWrap>
+                {subtitle}
+              </Typography>
+            ) : null}
+            {dateEditHref ? (
+              <IconButton
+                component={Link}
+                href={dateEditHref}
+                prefetch={false}
+                aria-label="Edit dates"
+                className="no-print"
+                sx={{ p: 0.25 }}
+              >
+                <EditIcon sx={{ fontSize: 16 }} />
+              </IconButton>
+            ) : null}
+          </Box>
         ) : null}
       </Box>
       {actions ? (

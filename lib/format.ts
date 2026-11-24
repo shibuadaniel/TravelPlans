@@ -68,6 +68,10 @@ export function travelReturnLabel(travel: string | null, ret: string | null) {
   return `${monthDay(start)} - ${dayText(end.day)}, ${start.year}`;
 }
 
+export function endsBeforeStart(start: string | null | undefined, end: string | null | undefined) {
+  return Boolean(start && end && end < start);
+}
+
 export function formatDateTime(value: string | null | undefined) {
   if (!value) return "";
   const date = new Date(value);

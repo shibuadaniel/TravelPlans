@@ -3,7 +3,7 @@
 import Box from "@mui/material/Box";
 import type { ReactNode } from "react";
 import { SectionAccordion } from "@/components/section-accordion";
-import { CarsBody, CongregationsBody, FlightsBody, InsuranceBody, StaysBody } from "@/components/section-bodies";
+import { CarsBody, FlightsBody, InsuranceBody, StaysBody } from "@/components/section-bodies";
 import { TitleChrome } from "@/components/title-chrome";
 import { travelReturnLabel } from "@/lib/format";
 import type { FlightStatusChip, TripBundle } from "@/lib/types";
@@ -31,6 +31,7 @@ export function TripBriefing({
         subtitle={travelReturnLabel(trip.travelDate, trip.returnDate)}
         avatarSrc={`/api/avatar?trip=${trip.id}`}
         tint
+        dateEditHref={editable ? `/trips/${trip.id}/edit?step=overview` : undefined}
         actions={mode === "owner" ? ownerTools : null}
       />
       <Box sx={{ px: 2, pt: 1 }}>
@@ -55,12 +56,6 @@ export function TripBriefing({
         </SectionAccordion>
         <SectionAccordion title="Insurance" editHref={editable ? `/trips/${trip.id}/edit?step=insurance` : undefined}>
           <InsuranceBody insurance={bundle.insurance} documents={bundle.insuranceDocuments} guest={!editable} />
-        </SectionAccordion>
-        <SectionAccordion
-          title="Congregations"
-          editHref={editable ? `/trips/${trip.id}/edit?step=congregations` : undefined}
-        >
-          <CongregationsBody congregations={bundle.congregations} />
         </SectionAccordion>
       </Box>
     </>

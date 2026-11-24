@@ -15,6 +15,7 @@ export async function GET(request: Request) {
 
 async function readAvatar(request: Request) {
   const requestedTrip = new URL(request.url).searchParams.get("trip");
+  const user = await getCurrentUser();
   const jar = await cookies();
   const pending = await verifyGuestPinToken(jar.get(GUEST_PIN_COOKIE)?.value);
   const guest = await verifyGuestToken(jar.get(GUEST_COOKIE)?.value);
@@ -23,17 +24,18 @@ async function readAvatar(request: Request) {
   if (requestedTrip) {
     if (!(await canReadTrip(requestedTrip))) return new NextResponse("Not found", { status: 404 });
     avatar = await tripOwnerAvatar(requestedTrip);
+  } else if (user) {
+    avatar = await userAvatar(user.id);
   } else if (tripId) {
     avatar = await tripOwnerAvatar(tripId);
-  } else {
-    avatar = await userAvatar((await getCurrentUser())?.id ?? "");
   }
   if (!avatar) return new NextResponse("Not found", { status: 404 });
   const bytes = await readStoredFile(avatar.key);
   if (!bytes) return new NextResponse("Not found", { status: 404 });
-  return new NextResponse(new Uint8Array(bytes), {
+  return new Response(new Uint8Array(bytes), {
     headers: {
       "Content-Type": avatar.mime,
+      "Content-Length": String(bytes.length),
       "Cache-Control": "private, no-store",
       "X-Content-Type-Options": "nosniff",
     },

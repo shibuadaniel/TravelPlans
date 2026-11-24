@@ -5,18 +5,17 @@ import { useRouter } from "next/navigation";
 import { useRef, useState } from "react";
 import {
   CarsForm,
-  CongregationsForm,
   FlightsForm,
   InsuranceForm,
   OverviewForm,
   StaysForm,
 } from "@/components/editor-forms";
 import { SectionAccordion } from "@/components/section-accordion";
-import { CarsBody, CongregationsBody, FlightsBody, InsuranceBody, OverviewBody, StaysBody } from "@/components/section-bodies";
+import { CarsBody, FlightsBody, InsuranceBody, OverviewBody, StaysBody } from "@/components/section-bodies";
 import { SharePanel } from "@/components/share-panel";
 import { TitleChrome } from "@/components/title-chrome";
 import { deleteTripAction } from "@/lib/actions/trips";
-import { blankCar, blankCongregation, blankFlight, blankStay } from "@/lib/blank";
+import { blankCar, blankFlight, blankStay } from "@/lib/blank";
 import { travelReturnLabel } from "@/lib/format";
 import {
   type CarRental,
@@ -61,8 +60,14 @@ export function TripEditor({
   const router = useRouter();
   const role = bundle.trip.role;
   const [overviewSaved, setOverviewSaved] = useState(bundle.trip.destination.trim().length > 0);
-  const openingStep: EditStep | null = overviewSaved ? (initialStep === "share" ? null : initialStep) : "overview";
-  const [expanded, setExpanded] = useState<EditStep | false>(openingStep ?? initialStep);
+  const openingStep: EditStep | null = overviewSaved
+    ? initialStep === "share" || initialStep === "congregations"
+      ? null
+      : initialStep
+    : "overview";
+  const [expanded, setExpanded] = useState<EditStep | false>(
+    openingStep ?? (initialStep === "congregations" ? false : initialStep),
+  );
   const [editing, setEditing] = useState<EditStep | null>(openingStep);
   const [destination, setDestination] = useState(bundle.trip.destination);
   const [travelDate, setTravelDate] = useState(bundle.trip.travelDate);
@@ -138,10 +143,6 @@ export function TripEditor({
   function shown(step: EditStep) {
     return editing === null || editing === step;
   }
-
-  const searchSeed = stays.find((stay) => stay.address.trim() || stay.name.trim())?.address
-    || stays.find((stay) => stay.name.trim())?.name
-    || destination;
 
   return (
     <>
@@ -269,34 +270,6 @@ export function TripEditor({
             />
           ) : (
             <InsuranceBody insurance={insurance} documents={documents} />
-          )}
-        </SectionAccordion>
-        ) : null}
-
-        {shown("congregations") ? (
-        <SectionAccordion
-          title="Congregations"
-          count={congregations.length}
-          expanded={expanded === "congregations"}
-          locked={editing === "congregations"}
-          onChange={(open) => setExpanded(open ? "congregations" : false)}
-          onAdd={() => {
-            beginEdit("congregations");
-            setCongregations([...congregations, blankCongregation()]);
-          }}
-          onEdit={editing === "congregations" ? undefined : () => beginEdit("congregations")}
-        >
-          {editing === "congregations" ? (
-            <CongregationsForm
-              tripId={bundle.trip.id}
-              congregations={congregations}
-              setCongregations={setCongregations}
-              initialQuery={searchSeed}
-              onSaved={() => advance("congregations")}
-              onCancel={cancelEdit}
-            />
-          ) : (
-            <CongregationsBody congregations={congregations} />
           )}
         </SectionAccordion>
         ) : null}

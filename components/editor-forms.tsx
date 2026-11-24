@@ -13,6 +13,7 @@ import Stack from "@mui/material/Stack";
 import TextField from "@mui/material/TextField";
 import Typography from "@mui/material/Typography";
 import { useRef, useState } from "react";
+import { ConfirmDialog } from "@/components/confirm-dialog";
 import { FormGrid } from "@/components/fields";
 import { DocumentLink } from "@/components/section-bodies";
 import {
@@ -29,6 +30,7 @@ import { blankCongregation } from "@/lib/blank";
 import {
   carTitle,
   congregationTitle,
+  endsBeforeStart,
   flightTitle,
   stayTitle,
 } from "@/lib/format";
@@ -152,15 +154,24 @@ export function OverviewForm({
 }) {
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [overlap, setOverlap] = useState<string | null>(null);
   const destinationMissing = destination.trim().length === 0;
 
-  async function save() {
+  async function save(acknowledgeOverlap = false) {
     if (destinationMissing) return;
+    if (endsBeforeStart(travelDate, returnDate)) {
+      setError("The return date must be on or after the travel date.");
+      return;
+    }
     setPending(true);
     setError(null);
-    const result = await saveOverviewAction(tripId, { destination, travelDate, returnDate, notes });
+    const result = await saveOverviewAction(tripId, { destination, travelDate, returnDate, notes }, { acknowledgeOverlap });
     setPending(false);
     if (!result.ok) {
+      if (result.overlap) {
+        setOverlap(result.error);
+        return;
+      }
       setError(result.error);
       return;
     }
@@ -185,7 +196,7 @@ export function OverviewForm({
           label="Date of travel"
           type="date"
           value={travelDate ?? ""}
-          slotProps={dateSlot}
+          slotProps={{ ...dateSlot, htmlInput: { max: returnDate || undefined } }}
           onChange={(event) => onChange({ destination, travelDate: event.target.value || null, returnDate, notes })}
         />
         <TextField
@@ -193,7 +204,7 @@ export function OverviewForm({
           label="Date of return"
           type="date"
           value={returnDate ?? ""}
-          slotProps={dateSlot}
+          slotProps={{ ...dateSlot, htmlInput: { min: travelDate || undefined } }}
           onChange={(event) => onChange({ destination, travelDate, returnDate: event.target.value || null, notes })}
         />
         <TextField
@@ -207,6 +218,15 @@ export function OverviewForm({
         />
       </FormGrid>
       <FormActions pending={pending} onCancel={onCancel} saveDisabled={destinationMissing} />
+      <ConfirmDialog
+        open={Boolean(overlap)}
+        title="Dates overlap"
+        body={`${overlap ?? ""} Save this trip anyway?`}
+        confirmLabel="Save anyway"
+        pending={pending}
+        onClose={() => setOverlap(null)}
+        onConfirm={() => void save(true)}
+      />
     </Stack>
   );
 }
@@ -234,6 +254,10 @@ export function FlightsForm({
   }
 
   async function save() {
+    if (flights.some((item) => endsBeforeStart(item.departAt, item.arriveAt))) {
+      setError("Arrival must be at or after departure.");
+      return;
+    }
     setPending(true);
     setError(null);
     const result = await saveFlightsAction(tripId, flights);
@@ -266,8 +290,8 @@ export function FlightsForm({
           <TextField fullWidth label="Flight #" value={flight.flightNumber} onChange={(event) => update(flight.id, { flightNumber: event.target.value })} />
           <TextField fullWidth label="From" value={flight.fromAirport} onChange={(event) => update(flight.id, { fromAirport: event.target.value })} />
           <TextField fullWidth label="To" value={flight.toAirport} onChange={(event) => update(flight.id, { toAirport: event.target.value })} />
-          <TextField fullWidth sx={{ ...wide, "& .MuiInputBase-input": { minWidth: 0 } }} label="Depart (local)" type="datetime-local" value={flight.departAt ?? ""} slotProps={dateSlot} onChange={(event) => update(flight.id, { departAt: event.target.value || null })} />
-          <TextField fullWidth sx={{ ...wide, "& .MuiInputBase-input": { minWidth: 0 } }} label="Arrive (local)" type="datetime-local" value={flight.arriveAt ?? ""} slotProps={dateSlot} onChange={(event) => update(flight.id, { arriveAt: event.target.value || null })} />
+          <TextField fullWidth sx={{ ...wide, "& .MuiInputBase-input": { minWidth: 0 } }} label="Depart (local)" type="datetime-local" value={flight.departAt ?? ""} slotProps={{ ...dateSlot, htmlInput: { max: flight.arriveAt || undefined } }} onChange={(event) => update(flight.id, { departAt: event.target.value || null })} />
+          <TextField fullWidth sx={{ ...wide, "& .MuiInputBase-input": { minWidth: 0 } }} label="Arrive (local)" type="datetime-local" value={flight.arriveAt ?? ""} slotProps={{ ...dateSlot, htmlInput: { min: flight.departAt || undefined } }} onChange={(event) => update(flight.id, { arriveAt: event.target.value || null })} />
           <TextField fullWidth label="Confirmation" value={flight.confirmation} onChange={(event) => update(flight.id, { confirmation: event.target.value })} />
           <TextField fullWidth label="Passengers" value={flight.passengers} onChange={(event) => update(flight.id, { passengers: event.target.value })} />
           <TextField fullWidth label="Terminal / gate" value={flight.terminalGate} onChange={(event) => update(flight.id, { terminalGate: event.target.value })} />
@@ -301,6 +325,10 @@ export function CarsForm({
   }
 
   async function save() {
+    if (cars.some((item) => endsBeforeStart(item.pickupAt, item.dropoffAt))) {
+      setError("Dropoff must be at or after pickup.");
+      return;
+    }
     setPending(true);
     setError(null);
     const result = await saveCarsAction(tripId, cars);
@@ -333,8 +361,8 @@ export function CarsForm({
           <TextField fullWidth label="Confirmation" value={car.confirmation} onChange={(event) => update(car.id, { confirmation: event.target.value })} />
           <TextField fullWidth sx={wide} label="Pickup place" value={car.pickupPlace} onChange={(event) => update(car.id, { pickupPlace: event.target.value })} />
           <TextField fullWidth sx={wide} label="Dropoff place" value={car.dropoffPlace} onChange={(event) => update(car.id, { dropoffPlace: event.target.value })} />
-          <TextField fullWidth label="Pickup time" type="datetime-local" value={car.pickupAt ?? ""} slotProps={dateSlot} onChange={(event) => update(car.id, { pickupAt: event.target.value || null })} />
-          <TextField fullWidth label="Dropoff time" type="datetime-local" value={car.dropoffAt ?? ""} slotProps={dateSlot} onChange={(event) => update(car.id, { dropoffAt: event.target.value || null })} />
+          <TextField fullWidth label="Pickup time" type="datetime-local" value={car.pickupAt ?? ""} slotProps={{ ...dateSlot, htmlInput: { max: car.dropoffAt || undefined } }} onChange={(event) => update(car.id, { pickupAt: event.target.value || null })} />
+          <TextField fullWidth label="Dropoff time" type="datetime-local" value={car.dropoffAt ?? ""} slotProps={{ ...dateSlot, htmlInput: { min: car.pickupAt || undefined } }} onChange={(event) => update(car.id, { dropoffAt: event.target.value || null })} />
           <TextField fullWidth label="Vehicle class" value={car.vehicleClass} onChange={(event) => update(car.id, { vehicleClass: event.target.value })} />
           <TextField fullWidth label="Contact phone" value={car.contactPhone} onChange={(event) => update(car.id, { contactPhone: event.target.value })} />
         </FormGrid>
@@ -371,6 +399,10 @@ export function StaysForm({
   }
 
   async function save() {
+    if (stays.some((item) => endsBeforeStart(item.checkIn, item.checkOut))) {
+      setError("Check-out must be on or after check-in.");
+      return;
+    }
     setPending(true);
     setError(null);
     const formData = new FormData();
@@ -423,8 +455,8 @@ export function StaysForm({
         <FormGrid>
           <TextField fullWidth sx={wide} label="Place" value={stay.name} onChange={(event) => update(stay.id, { name: event.target.value })} />
           <TextField fullWidth sx={wide} label="Address" value={stay.address} onChange={(event) => update(stay.id, { address: event.target.value })} />
-          <TextField fullWidth label="Check-in" type="date" value={stay.checkIn ?? ""} slotProps={dateSlot} onChange={(event) => update(stay.id, { checkIn: event.target.value || null })} />
-          <TextField fullWidth label="Check-out" type="date" value={stay.checkOut ?? ""} slotProps={dateSlot} onChange={(event) => update(stay.id, { checkOut: event.target.value || null })} />
+          <TextField fullWidth label="Check-in" type="date" value={stay.checkIn ?? ""} slotProps={{ ...dateSlot, htmlInput: { max: stay.checkOut || undefined } }} onChange={(event) => update(stay.id, { checkIn: event.target.value || null })} />
+          <TextField fullWidth label="Check-out" type="date" value={stay.checkOut ?? ""} slotProps={{ ...dateSlot, htmlInput: { min: stay.checkIn || undefined } }} onChange={(event) => update(stay.id, { checkOut: event.target.value || null })} />
           <Box sx={wide}>
           {pickedName ? (
             <Typography variant="body2">{pickedName}</Typography>
@@ -509,6 +541,10 @@ export function InsuranceForm({
   const [error, setError] = useState<string | null>(null);
 
   async function save() {
+    if (endsBeforeStart(insurance.coverageStart, insurance.coverageEnd)) {
+      setError("Coverage end must be on or after coverage start.");
+      return;
+    }
     setPending(true);
     setError(null);
     const formData = new FormData();
@@ -555,8 +591,8 @@ export function InsuranceForm({
       <FormGrid>
         <TextField fullWidth label="Provider" value={insurance.provider} onChange={(event) => setInsurance({ ...insurance, provider: event.target.value })} />
         <TextField fullWidth label="Policy number" value={insurance.policyNumber} onChange={(event) => setInsurance({ ...insurance, policyNumber: event.target.value })} />
-        <TextField fullWidth label="Coverage start" type="date" value={insurance.coverageStart ?? ""} slotProps={dateSlot} onChange={(event) => setInsurance({ ...insurance, coverageStart: event.target.value || null })} />
-        <TextField fullWidth label="Coverage end" type="date" value={insurance.coverageEnd ?? ""} slotProps={dateSlot} onChange={(event) => setInsurance({ ...insurance, coverageEnd: event.target.value || null })} />
+        <TextField fullWidth label="Coverage start" type="date" value={insurance.coverageStart ?? ""} slotProps={{ ...dateSlot, htmlInput: { max: insurance.coverageEnd || undefined } }} onChange={(event) => setInsurance({ ...insurance, coverageStart: event.target.value || null })} />
+        <TextField fullWidth label="Coverage end" type="date" value={insurance.coverageEnd ?? ""} slotProps={{ ...dateSlot, htmlInput: { min: insurance.coverageStart || undefined } }} onChange={(event) => setInsurance({ ...insurance, coverageEnd: event.target.value || null })} />
         <TextField fullWidth label="Phone" value={insurance.phone} onChange={(event) => setInsurance({ ...insurance, phone: event.target.value })} />
         <TextField fullWidth sx={wide} label="Claim notes" multiline minRows={3} value={insurance.claimNotes} onChange={(event) => setInsurance({ ...insurance, claimNotes: event.target.value })} />
       </FormGrid>

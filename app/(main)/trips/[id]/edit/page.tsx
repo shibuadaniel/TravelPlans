@@ -31,15 +31,17 @@ export default async function EditTripPage({
   const user = await requireUser();
   const bundle = await getAccessibleBundle(user.id, id);
   if (!bundle) notFound();
-  const shareLinks = bundle.trip.role === "owner" ? await listShareLinks(id) : [];
-  const members = bundle.trip.role === "owner" ? await listMembers(id) : [];
+  const owner = bundle.trip.role === "owner";
+  const [shareLinks, members, guestEmails] = owner
+    ? await Promise.all([listShareLinks(id), listMembers(id), listGuestEmails(id)])
+    : [[], [], []];
   return (
     <TripEditor
       bundle={bundle}
-      initialStep={parseStep(step, bundle.trip.role === "owner")}
+      initialStep={parseStep(step, owner)}
       shareLinks={shareLinks}
       members={members}
-      guestEmails={bundle.trip.role === "owner" ? await listGuestEmails(id) : []}
+      guestEmails={guestEmails}
     />
   );
 }

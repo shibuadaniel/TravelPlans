@@ -11,6 +11,7 @@ import {
   getRole,
   insertBlankTrip,
   listShareLinks,
+  listTripsForUser,
   addGuestEmail,
   listMembers,
   normalizeGuestEmail,
@@ -26,7 +27,8 @@ import {
   saveStays,
   type StayWrite,
 } from "@/lib/data";
-import { storeFile, removeStoredFile } from "@/lib/uploads";
+import { destinationKeyword, endsBeforeStart, travelReturnLabel } from "@/lib/format";
+import { removeStoredFile, storeFile } from "@/lib/uploads";
 import type {
   CarRental,
   Congregation,
@@ -81,9 +83,30 @@ export async function createBlankTrip(): Promise<Result<{ id: string }>> {
 export async function saveOverviewAction(
   tripId: string,
   input: { destination: string; travelDate: string | null; returnDate: string | null; notes: string },
-): Promise<Result<{ destination: string; travelDate: string | null; returnDate: string | null; notes: string }>> {
+  options?: { acknowledgeOverlap?: boolean },
+): Promise<Result<{ destination: string; travelDate: string | null; returnDate: string | null; notes: string }> & { overlap?: boolean }> {
   const access = await editor(tripId);
-  if (!access.role) return { ok: false, error: "Trip not found." };
+  if (!access.role || !access.user) return { ok: false, error: "Trip not found." };
+  const start = input.travelDate?.slice(0, 10) || null;
+  const end = input.returnDate?.slice(0, 10) || start;
+  if (start && end && endsBeforeStart(start, end)) {
+    return { ok: false, error: "The return date must be on or after the travel date." };
+  }
+  if (start && end && !options?.acknowledgeOverlap) {
+    const trips = await listTripsForUser(access.user.id);
+    const hits = trips.filter((trip) => {
+      if (trip.id === tripId || !trip.travelDate) return false;
+      const otherStart = trip.travelDate;
+      const otherEnd = trip.returnDate && trip.returnDate >= otherStart ? trip.returnDate : otherStart;
+      return start <= otherEnd && otherStart <= end;
+    });
+    if (hits.length > 0) {
+      const list = hits
+        .map((trip) => `${destinationKeyword(trip.destination)} (${travelReturnLabel(trip.travelDate, trip.returnDate)})`)
+        .join(", ");
+      return { ok: false, overlap: true, error: `These dates overlap ${list}.` };
+    }
+  }
   try {
     const saved = await saveOverview(tripId, input);
     revalidateTrip(tripId);

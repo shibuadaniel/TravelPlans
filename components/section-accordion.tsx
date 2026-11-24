@@ -76,7 +76,7 @@ export function SectionAccordion({
             position: "absolute",
             top: 6,
             right: locked ? 8 : 50,
-            zIndex: 1,
+            zIndex: 2,
             display: "flex",
             alignItems: "center",
             gap: 0.5,
@@ -88,7 +88,13 @@ export function SectionAccordion({
             </IconButton>
           ) : null}
           {editHref ? (
-            <IconButton component={Link} href={editHref} aria-label={`Edit ${title}`}>
+            <IconButton
+              component={Link}
+              href={editHref}
+              prefetch={false}
+              aria-label={`Edit ${title}`}
+              onClick={(event) => event.stopPropagation()}
+            >
               <EditIcon fontSize="small" />
             </IconButton>
           ) : null}

@@ -3,6 +3,7 @@ import "server-only";
 import { createHash, randomBytes, randomUUID } from "crypto";
 import { cache } from "react";
 import { dbAll, dbGet, dbRun, transaction } from "@/lib/db";
+import { endsBeforeStart } from "@/lib/format";
 import { removeStoredFile } from "@/lib/uploads";
 import { cleanJwUrl } from "@/lib/urls";
 import type {
@@ -530,6 +531,9 @@ export async function saveOverview(
 }
 
 export async function saveFlights(tripId: string, flights: Flight[]) {
+  if (flights.some((flight) => endsBeforeStart(flight.departAt, flight.arriveAt))) {
+    throw new Error("Arrival must be at or after departure.");
+  }
   const existing = new Set((await dbAll<{ id: string }>("SELECT id FROM flights WHERE trip_id = ?", tripId)).map((row) => row.id));
   const timestamp = now();
   await transaction(async () => {
@@ -580,6 +584,9 @@ export async function saveFlights(tripId: string, flights: Flight[]) {
 }
 
 export async function saveCars(tripId: string, cars: CarRental[]) {
+  if (cars.some((car) => endsBeforeStart(car.pickupAt, car.dropoffAt))) {
+    throw new Error("Dropoff must be at or after pickup.");
+  }
   const existing = new Set(
     (await dbAll<{ id: string }>("SELECT id FROM car_rentals WHERE trip_id = ?", tripId)).map((row) => row.id),
   );
@@ -636,6 +643,9 @@ export type StayWrite = Stay & {
 };
 
 export async function saveStays(tripId: string, stays: StayWrite[]) {
+  if (stays.some((stay) => endsBeforeStart(stay.checkIn, stay.checkOut))) {
+    throw new Error("Check-out must be on or after check-in.");
+  }
   await ensureApprovalColumns();
   const existingRows = (await dbAll<{ id: string; document_key: string | null }>(
     "SELECT id, document_key FROM stays WHERE trip_id = ?",
@@ -720,6 +730,9 @@ export async function saveInsurance(
   files: { name: string; mime: string; size: number; key: string; requiresApproval: boolean }[],
   approvals: { id: string; requiresApproval: boolean }[] = [],
 ) {
+  if (endsBeforeStart(insurance.coverageStart, insurance.coverageEnd)) {
+    throw new Error("Coverage end must be on or after coverage start.");
+  }
   await ensureApprovalColumns();
   const timestamp = now();
   const count = await dbGet<{ count: number }>(
