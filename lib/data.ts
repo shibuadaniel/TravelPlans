@@ -249,7 +249,7 @@ export async function listTripsForUser(userId: string): Promise<TripListItem[]> 
      FROM trips t
      JOIN trip_members m ON m.trip_id = t.id
      WHERE m.user_id = ?
-     ORDER BY t.updated_at DESC`,
+     ORDER BY t.travel_date ASC NULLS LAST, t.destination ASC`,
     userId,
   ));
   return rows.map((row) => ({

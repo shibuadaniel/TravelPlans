@@ -32,6 +32,11 @@ export type TripListItem = {
   photo: PlacePhoto | null;
 };
 
+export type FlightStatusChip = {
+  label: string;
+  color: "default" | "primary" | "info" | "success" | "warning" | "error";
+};
+
 export type Flight = {
   id: string;
   airline: string;

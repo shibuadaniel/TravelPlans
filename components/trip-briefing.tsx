@@ -6,16 +6,18 @@ import { SectionAccordion } from "@/components/section-accordion";
 import { CarsBody, CongregationsBody, FlightsBody, InsuranceBody, StaysBody } from "@/components/section-bodies";
 import { TitleChrome } from "@/components/title-chrome";
 import { travelReturnLabel } from "@/lib/format";
-import type { TripBundle } from "@/lib/types";
+import type { FlightStatusChip, TripBundle } from "@/lib/types";
 
 export function TripBriefing({
   bundle,
   mode,
   ownerTools = null,
+  flightStatuses = {},
 }: {
   bundle: TripBundle;
   mode: "owner" | "collaborator" | "guest";
   ownerTools?: ReactNode;
+  flightStatuses?: Record<string, FlightStatusChip>;
 }) {
   const { trip } = bundle;
   const editable = mode !== "guest";
@@ -28,6 +30,7 @@ export function TripBriefing({
         title={trip.destination}
         subtitle={travelReturnLabel(trip.travelDate, trip.returnDate)}
         avatarSrc={`/api/avatar?trip=${trip.id}`}
+        tint
         actions={mode === "owner" ? ownerTools : null}
       />
       <Box sx={{ px: 2, pt: 1 }}>
@@ -36,7 +39,7 @@ export function TripBriefing({
           defaultExpanded
           editHref={editable ? `/trips/${trip.id}/edit?step=flights` : undefined}
         >
-          <FlightsBody flights={bundle.flights} />
+          <FlightsBody flights={bundle.flights} statuses={flightStatuses} />
         </SectionAccordion>
         <SectionAccordion
           title="Car rentals"

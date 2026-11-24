@@ -1,5 +1,6 @@
 import AttachFileIcon from "@mui/icons-material/AttachFile";
 import Box from "@mui/material/Box";
+import Chip from "@mui/material/Chip";
 import Divider from "@mui/material/Divider";
 import Link from "@mui/material/Link";
 import Typography from "@mui/material/Typography";
@@ -14,23 +15,30 @@ import {
   formatShortDate,
   stayTitle,
 } from "@/lib/format";
-import type { CarRental, Congregation, Flight, Insurance, InsuranceDocument, Stay } from "@/lib/types";
+import type { CarRental, Congregation, Flight, FlightStatusChip, Insurance, InsuranceDocument, Stay } from "@/lib/types";
 
 function ItemBlock({
   index,
   title,
+  titleExtra,
   subtext,
   children,
 }: {
   index: number;
   title: string;
+  titleExtra?: React.ReactNode;
   subtext?: string;
   children?: React.ReactNode;
 }) {
   return (
     <Box>
       {index > 0 ? <Divider sx={{ my: 1.25 }} /> : null}
-      <Typography variant="subtitle2">{title}</Typography>
+      <Box sx={{ display: "flex", alignItems: "center", gap: 1, minWidth: 0 }}>
+        <Typography variant="subtitle2" noWrap sx={{ minWidth: 0 }}>
+          {title}
+        </Typography>
+        {titleExtra}
+      </Box>
       {subtext ? (
         <Typography variant="body2" color="text.secondary">
           {subtext}
@@ -60,12 +68,29 @@ export function DocumentLink({ href, name }: { href: string; name: string }) {
   );
 }
 
-export function FlightsBody({ flights }: { flights: Flight[] }) {
+export function FlightsBody({
+  flights,
+  statuses,
+}: {
+  flights: Flight[];
+  statuses?: Record<string, FlightStatusChip>;
+}) {
   if (flights.length === 0) return <EmptyNote>No flights yet.</EmptyNote>;
   return (
     <>
-      {flights.map((flight, index) => (
-        <ItemBlock key={flight.id} index={index} title={flightTitle(flight, index)}>
+      {flights.map((flight, index) => {
+        const status = statuses?.[flight.id];
+        return (
+        <ItemBlock
+          key={flight.id}
+          index={index}
+          title={flightTitle(flight, index)}
+          titleExtra={
+            status ? (
+              <Chip label={status.label} color={status.color} size="small" sx={{ flexShrink: 0, height: 22 }} />
+            ) : null
+          }
+        >
           <FieldGrid>
             <Field label="Flight #" value={flight.flightNumber} />
             <Field label="Route" value={arrowRange(flight.fromAirport.trim(), flight.toAirport.trim())} />
@@ -76,7 +101,8 @@ export function FlightsBody({ flights }: { flights: Flight[] }) {
             <Field label="Terminal / gate" value={flight.terminalGate} />
           </FieldGrid>
         </ItemBlock>
-      ))}
+        );
+      })}
     </>
   );
 }

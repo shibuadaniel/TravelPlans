@@ -4,6 +4,7 @@ import { ShareTripButton } from "@/components/share-trip-button";
 import { TripBriefing } from "@/components/trip-briefing";
 import { requireUser } from "@/lib/current";
 import { getAccessibleBundle, listGuestEmails, listMembers, listShareLinks } from "@/lib/data";
+import { flightStatuses } from "@/lib/flight-status";
 import { displayDestination } from "@/lib/format";
 
 export async function generateMetadata({ params }: { params: Promise<{ id: string }> }): Promise<Metadata> {
@@ -36,6 +37,7 @@ export default async function TripPage({ params }: { params: Promise<{ id: strin
           />
         ) : null
       }
+      flightStatuses={await flightStatuses(bundle.flights)}
     />
   );
 }

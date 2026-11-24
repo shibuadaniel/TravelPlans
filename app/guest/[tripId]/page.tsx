@@ -3,9 +3,10 @@ import { InvalidShare } from "@/components/invalid-share";
 import { TripBriefing } from "@/components/trip-briefing";
 import { guestCanRead } from "@/lib/current";
 import { getBundle } from "@/lib/data";
+import { flightStatuses } from "@/lib/flight-status";
+import { displayDestination } from "@/lib/format";
 
 export const dynamic = "force-dynamic";
-import { displayDestination } from "@/lib/format";
 
 export async function generateMetadata({ params }: { params: Promise<{ tripId: string }> }): Promise<Metadata> {
   const { tripId } = await params;
@@ -23,5 +24,5 @@ export default async function GuestTripPage({ params }: { params: Promise<{ trip
   }
   const bundle = await getBundle(tripId, "guest");
   if (!bundle) return <InvalidShare />;
-  return <TripBriefing bundle={bundle} mode="guest" />;
+  return <TripBriefing bundle={bundle} mode="guest" flightStatuses={await flightStatuses(bundle.flights)} />;
 }

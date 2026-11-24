@@ -16,6 +16,7 @@ export function TitleChrome({
   subtitle,
   actions,
   avatarSrc,
+  tint = false,
 }: {
   backHref?: string;
   onBack?: () => void;
@@ -24,6 +25,7 @@ export function TitleChrome({
   subtitle?: string;
   actions?: React.ReactNode;
   avatarSrc?: string;
+  tint?: boolean;
 }) {
   return (
     <Box
@@ -38,8 +40,8 @@ export function TitleChrome({
       }}
     >
       <Box
-        sx={{
-          bgcolor: "background.paper",
+        sx={(theme) => ({
+          bgcolor: tint ? "#e4f1f4" : "background.paper",
           border: 1,
           borderColor: "divider",
           borderRadius: 2,
@@ -48,7 +50,8 @@ export function TitleChrome({
           gap: 2,
           px: 2,
           py: 1.5,
-        }}
+          ...(tint ? theme.applyStyles("dark", { bgcolor: "#243e48" }) : {}),
+        })}
       >
       {onBack || backHref ? (
         <IconButton

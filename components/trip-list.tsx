@@ -15,6 +15,12 @@ import { deleteTripAction } from "@/lib/actions/trips";
 import { destinationKeyword, pastelGradient, travelReturnLabel } from "@/lib/format";
 import type { TripListItem } from "@/lib/types";
 
+function byTravelDate(a: TripListItem, b: TripListItem) {
+  if (a.travelDate && b.travelDate && a.travelDate !== b.travelDate) return a.travelDate < b.travelDate ? -1 : 1;
+  if (a.travelDate !== b.travelDate) return a.travelDate ? -1 : 1;
+  return a.destination.localeCompare(b.destination);
+}
+
 export function TripList({ trips }: { trips: TripListItem[] }) {
   const router = useRouter();
   const [items, setItems] = useState(trips);
@@ -31,12 +37,12 @@ export function TripList({ trips }: { trips: TripListItem[] }) {
     try {
       const result = await deleteTripAction(trip.id);
       if (!result.ok) {
-        setItems((current) => [trip, ...current.filter((item) => item.id !== trip.id)]);
+        setItems((current) => [...current.filter((item) => item.id !== trip.id), trip].sort(byTravelDate));
         setError(result.error);
         return;
       }
     } catch {
-      setItems((current) => [trip, ...current.filter((item) => item.id !== trip.id)]);
+      setItems((current) => [...current.filter((item) => item.id !== trip.id), trip].sort(byTravelDate));
       setError("Could not delete this trip.");
       return;
     }

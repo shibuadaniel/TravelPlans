@@ -167,6 +167,12 @@ export function AppShell({
                 Log out
               </Box>
             </Box>
+            <Typography
+              variant="caption"
+              sx={{ display: "block", mt: 2, textAlign: "center", color: "text.disabled" }}
+            >
+              Version 0.9.0
+            </Typography>
           </Box>
         ) : null}
       </SwipeableDrawer>

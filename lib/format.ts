@@ -12,15 +12,43 @@ export function displayDestination(destination: string) {
   return trimmed || "Untitled trip";
 }
 
-export function formatShortDate(value: string | null | undefined) {
-  if (!value) return "—";
+const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+
+function dateParts(value: string | null | undefined) {
+  if (!value) return null;
   const match = /^(\d{4})-(\d{2})-(\d{2})/.exec(value);
-  if (!match) return "—";
+  if (!match) return null;
   const year = Number(match[1]);
   const month = Number(match[2]);
   const day = Number(match[3]);
   const date = new Date(year, month - 1, day);
-  if (Number.isNaN(date.getTime())) return "—";
+  if (
+    Number.isNaN(date.getTime()) ||
+    date.getFullYear() !== year ||
+    date.getMonth() !== month - 1 ||
+    date.getDate() !== day
+  ) {
+    return null;
+  }
+  return { year, month, day };
+}
+
+function dayText(day: number) {
+  return String(day).padStart(2, "0");
+}
+
+function monthDay(parts: { month: number; day: number }) {
+  return `${MONTHS[parts.month - 1]} ${dayText(parts.day)}`;
+}
+
+function fullDate(parts: { year: number; month: number; day: number }) {
+  return `${monthDay(parts)}, ${parts.year}`;
+}
+
+export function formatShortDate(value: string | null | undefined) {
+  const parts = dateParts(value);
+  if (!parts) return "—";
+  const date = new Date(parts.year, parts.month - 1, parts.day);
   return date.toLocaleDateString(undefined, {
     month: "short",
     day: "numeric",
@@ -29,7 +57,15 @@ export function formatShortDate(value: string | null | undefined) {
 }
 
 export function travelReturnLabel(travel: string | null, ret: string | null) {
-  return `${formatShortDate(travel)} → ${formatShortDate(ret)}`;
+  const start = dateParts(travel);
+  const end = dateParts(ret);
+  if (!start && !end) return "";
+  if (!start || !end || (start.year === end.year && start.month === end.month && start.day === end.day)) {
+    return fullDate((start ?? end)!);
+  }
+  if (start.year !== end.year) return `${fullDate(start)} - ${fullDate(end)}`;
+  if (start.month !== end.month) return `${monthDay(start)} - ${monthDay(end)}, ${start.year}`;
+  return `${monthDay(start)} - ${dayText(end.day)}, ${start.year}`;
 }
 
 export function formatDateTime(value: string | null | undefined) {
