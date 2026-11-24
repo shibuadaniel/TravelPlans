@@ -2,6 +2,7 @@
 
 import Box from "@mui/material/Box";
 import type { ReactNode } from "react";
+import { ItineraryTimeline } from "@/components/itinerary-timeline";
 import { SectionAccordion } from "@/components/section-accordion";
 import { CarsBody, FlightsBody, InsuranceBody, StaysBody } from "@/components/section-bodies";
 import { TitleChrome } from "@/components/title-chrome";
@@ -35,6 +36,10 @@ export function TripBriefing({
         actions={mode === "owner" ? ownerTools : null}
       />
       <Box sx={{ px: 2, pt: 1 }}>
+        {/* Built from the sections below plus events added on it, so it has no edit button. */}
+        <SectionAccordion title="Itinerary" defaultExpanded>
+          <ItineraryTimeline bundle={bundle} editable={editable} />
+        </SectionAccordion>
         <SectionAccordion
           title="Flights"
           defaultExpanded

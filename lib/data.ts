@@ -3,7 +3,7 @@ import "server-only";
 import { createHash, randomBytes, randomUUID } from "crypto";
 import { cache } from "react";
 import { dbAll, dbGet, dbRun, transaction } from "@/lib/db";
-import { endsBeforeStart } from "@/lib/format";
+import { calendarDayNumber, endsBeforeStart } from "@/lib/format";
 import { removeStoredFile } from "@/lib/uploads";
 import { cleanJwUrl } from "@/lib/urls";
 import type {
@@ -19,6 +19,7 @@ import type {
   Stay,
   Trip,
   TripBundle,
+  TripEvent,
   TripListItem,
   User,
 } from "@/lib/types";
@@ -400,6 +401,125 @@ const emptyInsurance: Insurance = {
   claimNotes: "",
 };
 
+type EventRow = {
+  id: string;
+  event_date: string;
+  title: string;
+  description: string;
+};
+
+function mapEvent(row: EventRow): TripEvent {
+  return {
+    id: row.id,
+    eventDate: row.event_date,
+    title: row.title,
+    description: row.description,
+  };
+}
+
+export const EVENT_TITLE_MAX = 120;
+export const EVENT_DESCRIPTION_MAX = 2000;
+const EVENTS_PER_TRIP = 200;
+const EVENTS_TABLE_MISSING =
+  "Events aren't set up yet. Run supabase/itinerary-events.sql in the Supabase SQL editor, then try again.";
+
+function realDate(value: string | null | undefined) {
+  const day = dateOnly(value);
+  return day && calendarDayNumber(day) !== null ? day : null;
+}
+
+/** Events on the itinerary. Empty until supabase/itinerary-events.sql has been run. */
+async function listTripEvents(tripId: string): Promise<TripEvent[]> {
+  try {
+    const rows = await dbAll<EventRow>(
+      `SELECT id, event_date, title, description
+       FROM itinerary_events WHERE trip_id = ? ORDER BY event_date, sort_order, created_at`,
+      tripId,
+    );
+    return rows.map(mapEvent);
+  } catch (error) {
+    if (errorCode(error) === "42P01") return [];
+    throw error;
+  }
+}
+
+export async function saveTripEvent(
+  tripId: string,
+  input: { id?: string | null; eventDate: string; title: string; description: string },
+) {
+  const title = text(input.title, EVENT_TITLE_MAX + 1);
+  if (!title) throw new Error("Give the event a name.");
+  if (title.length > EVENT_TITLE_MAX) throw new Error(`Keep the name to ${EVENT_TITLE_MAX} characters.`);
+  const description = text(input.description, EVENT_DESCRIPTION_MAX + 1);
+  if (description.length > EVENT_DESCRIPTION_MAX) {
+    throw new Error(`Keep the description to ${EVENT_DESCRIPTION_MAX} characters.`);
+  }
+  const eventDate = realDate(input.eventDate);
+  if (!eventDate) throw new Error("That day isn't a valid date.");
+  const timestamp = now();
+  try {
+    if (input.id) {
+      const row = await dbGet<{ id: string }>(
+        `UPDATE itinerary_events SET event_date = ?, title = ?, description = ?, updated_at = ?
+         WHERE id = ? AND trip_id = ? RETURNING id`,
+        eventDate,
+        title,
+        description,
+        timestamp,
+        input.id,
+        tripId,
+      );
+      if (!row) throw new Error("This event no longer exists. Close this and refresh the page.");
+    } else {
+      const count = await dbGet<{ total: number | string }>(
+        "SELECT COUNT(*) AS total FROM itinerary_events WHERE trip_id = ?",
+        tripId,
+      );
+      if (Number(count?.total ?? 0) >= EVENTS_PER_TRIP) {
+        throw new Error("This trip has reached the most events it can hold.");
+      }
+      const order = await dbGet<{ next: number | string | null }>(
+        "SELECT COALESCE(MAX(sort_order), -1) + 1 AS next FROM itinerary_events WHERE trip_id = ? AND event_date = ?",
+        tripId,
+        eventDate,
+      );
+      await dbRun(
+        `INSERT INTO itinerary_events (id, trip_id, event_date, title, description, sort_order, created_at, updated_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+        randomUUID(),
+        tripId,
+        eventDate,
+        title,
+        description,
+        Number(order?.next ?? 0),
+        timestamp,
+        timestamp,
+      );
+    }
+  } catch (error) {
+    if (errorCode(error) === "42P01") throw new Error(EVENTS_TABLE_MISSING);
+    throw error;
+  }
+  await touchTrip(tripId);
+  return await listTripEvents(tripId);
+}
+
+export async function deleteTripEvent(tripId: string, eventId: string) {
+  try {
+    const row = await dbGet<{ id: string }>(
+      "DELETE FROM itinerary_events WHERE id = ? AND trip_id = ? RETURNING id",
+      eventId,
+      tripId,
+    );
+    if (!row) throw new Error("This event no longer exists. Close this and refresh the page.");
+  } catch (error) {
+    if (errorCode(error) === "42P01") throw new Error(EVENTS_TABLE_MISSING);
+    throw error;
+  }
+  await touchTrip(tripId);
+  return await listTripEvents(tripId);
+}
+
 export const getBundle = cache(async function getBundle(tripId: string, role: TripRole): Promise<TripBundle | null> {
   const guest = role === "guest";
   const trip = await dbGet<TripRow>(
@@ -409,7 +529,7 @@ export const getBundle = cache(async function getBundle(tripId: string, role: Tr
     tripId,
   );
   if (!trip) return null;
-  const [flightRows, carRows, stayRows, congregationRows, insuranceRow, insuranceRows] = await Promise.all([
+  const [flightRows, carRows, stayRows, congregationRows, insuranceRow, insuranceRows, events] = await Promise.all([
     dbAll<Parameters<typeof mapFlight>[0]>(
       `SELECT id, airline, flight_number, from_airport, to_airport, depart_at, arrive_at, confirmation, passengers, terminal_gate
        FROM flights WHERE trip_id = ? ORDER BY sort_order, created_at`,
@@ -453,6 +573,7 @@ export const getBundle = cache(async function getBundle(tripId: string, role: Tr
        FROM insurance_documents WHERE trip_id = ? ORDER BY sort_order, created_at`,
       tripId,
     ),
+    listTripEvents(tripId),
   ]);
   const insurance: Insurance = insuranceRow
     ? {
@@ -488,6 +609,7 @@ export const getBundle = cache(async function getBundle(tripId: string, role: Tr
         requiresApproval: approvalOn(row.requires_approval),
       }),
     ),
+    events,
   };
 });
 

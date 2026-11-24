@@ -100,6 +100,14 @@ export type InsuranceDocument = {
   requiresApproval: boolean;
 };
 
+export type TripEvent = {
+  id: string;
+  /** Calendar day, YYYY-MM-DD. */
+  eventDate: string;
+  title: string;
+  description: string;
+};
+
 export type TripBundle = {
   trip: Trip;
   flights: Flight[];
@@ -108,6 +116,7 @@ export type TripBundle = {
   congregations: Congregation[];
   insurance: Insurance;
   insuranceDocuments: InsuranceDocument[];
+  events: TripEvent[];
 };
 
 export type ShareLinkInfo = {

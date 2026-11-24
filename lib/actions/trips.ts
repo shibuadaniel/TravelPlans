@@ -8,6 +8,7 @@ import {
   createShare,
   deleteInsuranceDocument,
   deleteTrip,
+  deleteTripEvent,
   getRole,
   insertBlankTrip,
   listShareLinks,
@@ -25,6 +26,7 @@ import {
   saveInsurance,
   saveOverview,
   saveStays,
+  saveTripEvent,
   type StayWrite,
 } from "@/lib/data";
 import { calendarDayNumber, destinationKeyword, endsBeforeStart, travelReturnLabel } from "@/lib/format";
@@ -39,6 +41,7 @@ import type {
   Result,
   ShareLinkInfo,
   Stay,
+  TripEvent,
 } from "@/lib/types";
 
 function revalidateTrip(tripId: string) {
@@ -228,6 +231,38 @@ export async function deleteInsuranceDocumentAction(
     return { ok: true, data: documents };
   } catch (error) {
     return { ok: false, error: error instanceof Error ? error.message : "Could not delete that document." };
+  }
+}
+
+export async function saveTripEventAction(
+  tripId: string,
+  input: { id?: string | null; eventDate: string; title: string; description: string },
+): Promise<Result<TripEvent[]>> {
+  const access = await editor(tripId);
+  if (!access.role) return { ok: false, error: "Trip not found." };
+  try {
+    const saved = await saveTripEvent(tripId, {
+      id: typeof input?.id === "string" ? input.id : null,
+      eventDate: String(input?.eventDate ?? ""),
+      title: String(input?.title ?? ""),
+      description: String(input?.description ?? ""),
+    });
+    revalidateTrip(tripId);
+    return { ok: true, data: saved };
+  } catch (error) {
+    return { ok: false, error: error instanceof Error ? error.message : "Could not save the event." };
+  }
+}
+
+export async function deleteTripEventAction(tripId: string, eventId: string): Promise<Result<TripEvent[]>> {
+  const access = await editor(tripId);
+  if (!access.role) return { ok: false, error: "Trip not found." };
+  try {
+    const saved = await deleteTripEvent(tripId, String(eventId ?? ""));
+    revalidateTrip(tripId);
+    return { ok: true, data: saved };
+  } catch (error) {
+    return { ok: false, error: error instanceof Error ? error.message : "Could not delete the event." };
   }
 }
 
