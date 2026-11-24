@@ -76,6 +76,7 @@ export function TripEditor({
   const [returnDate, setReturnDate] = useState(bundle.trip.returnDate);
   const [notes, setNotes] = useState(bundle.trip.notes);
   const [flights, setFlights] = useState(bundle.flights);
+  const [flightFocusId, setFlightFocusId] = useState<string | null>(null);
   const [cars, setCars] = useState(bundle.carRentals);
   const [stays, setStays] = useState(bundle.stays);
   const [insurance, setInsurance] = useState(bundle.insurance);
@@ -134,11 +135,13 @@ export function TripEditor({
     }
     setExpanded(baseline?.step ?? false);
     setEditing(null);
+    setFlightFocusId(null);
   }
 
   function advance(from: EditStep) {
     baselineRef.current = null;
     setEditing(null);
+    setFlightFocusId(null);
     setExpanded(from);
   }
 
@@ -197,13 +200,15 @@ export function TripEditor({
           locked={editing === "flights"}
           onChange={(open) => setExpanded(open ? "flights" : false)}
           onAdd={() => {
+            const flight = blankFlight();
             beginEdit("flights");
-            setFlights([...flights, blankFlight()]);
+            setFlightFocusId(flight.id);
+            setFlights([...flights, flight]);
           }}
           onEdit={editing === "flights" ? undefined : () => beginEdit("flights")}
         >
           {editing === "flights" ? (
-            <FlightsForm tripId={bundle.trip.id} flights={flights} setFlights={setFlights} onSaved={() => advance("flights")} onCancel={cancelEdit} />
+            <FlightsForm tripId={bundle.trip.id} flights={flights} setFlights={setFlights} focusId={flightFocusId} onSaved={() => advance("flights")} onCancel={cancelEdit} />
           ) : (
             <FlightsBody flights={flights} />
           )}

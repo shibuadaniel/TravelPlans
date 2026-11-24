@@ -93,22 +93,24 @@ function PointRow({
       >
         <Icon fontSize="small" color="action" sx={{ mt: 0.25, flexShrink: 0 }} />
         <Box sx={{ minWidth: 0, flex: 1 }}>
-          <Box sx={{ display: "flex", alignItems: "center", gap: 0.75, flexWrap: "wrap" }}>
-            <Typography variant="body2" sx={{ fontWeight: 600, color: "text.primary" }}>
-              {heading}
-            </Typography>
-            {status ? (
-              <Chip label={status.label} color={status.color} size="small" sx={{ flexShrink: 0, height: 22 }} />
-            ) : null}
-          </Box>
-          {point.detail ? (
-            <Typography
-              variant="body2"
-              color="text.secondary"
-              sx={{ overflowWrap: "anywhere", whiteSpace: "pre-wrap" }}
-            >
-              {point.detail}
-            </Typography>
+          <Typography variant="body2" sx={{ fontWeight: 600, color: "text.primary" }}>
+            {heading}
+          </Typography>
+          {point.detail || status ? (
+            <Box sx={{ display: "flex", alignItems: "center", gap: 0.75, flexWrap: "wrap" }}>
+              {point.detail ? (
+                <Typography
+                  variant="body2"
+                  color="text.secondary"
+                  sx={{ overflowWrap: "anywhere", whiteSpace: "pre-wrap" }}
+                >
+                  {point.detail}
+                </Typography>
+              ) : null}
+              {status ? (
+                <Chip label={status.label} color={status.color} size="small" sx={{ flexShrink: 0, height: 22 }} />
+              ) : null}
+            </Box>
           ) : null}
         </Box>
       </ButtonBase>

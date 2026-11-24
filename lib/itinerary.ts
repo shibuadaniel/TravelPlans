@@ -14,7 +14,8 @@
  * Every source must cope with missing or backwards dates: skip the bad part
  * and report it as an issue instead of throwing.
  */
-import { calendarDayNumber, endsBeforeStart } from "@/lib/format";
+import { arrivalBeforeDeparture } from "@/lib/flight-time";
+import { calendarDayNumber } from "@/lib/format";
 import type { Flight, Stay, TripBundle, TripEvent } from "@/lib/types";
 
 /** Calendar day as "YYYY-MM-DD". */
@@ -163,7 +164,7 @@ const flightSource: ItinerarySource = ({ flights }) => {
     const from = flight.fromAirport.trim();
     const to = flight.toAirport.trim();
     let arriveOk = Boolean(arrive);
-    if (depart && arrive && endsBeforeStart(flight.departAt, flight.arriveAt)) {
+    if (depart && arrive && arrivalBeforeDeparture(flight)) {
       arriveOk = false;
       issues.push({
         id: `flight-backwards-${flight.id}`,

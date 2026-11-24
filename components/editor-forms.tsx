@@ -27,6 +27,7 @@ import {
 } from "@/lib/actions/trips";
 import { searchCongregations } from "@/lib/actions/search";
 import { blankCongregation } from "@/lib/blank";
+import { ARRIVAL_BEFORE_DEPARTURE, arrivalBeforeDeparture } from "@/lib/flight-time";
 import {
   carTitle,
   congregationTitle,
@@ -67,8 +68,8 @@ function FormActions({
   );
 }
 
-function useActiveIndex(count: number) {
-  const [index, setIndex] = useState(0);
+function useActiveIndex(count: number, initialIndex = 0) {
+  const [index, setIndex] = useState(() => Math.min(Math.max(initialIndex, 0), Math.max(0, count - 1)));
   const previous = useRef(count);
   const last = Math.max(0, count - 1);
   if (count > previous.current) {
@@ -237,16 +238,19 @@ export function FlightsForm({
   setFlights,
   onSaved,
   onCancel,
+  focusId = null,
 }: {
   tripId: string;
   flights: Flight[];
   setFlights: (flights: Flight[]) => void;
   onSaved: () => void;
   onCancel: () => void;
+  focusId?: string | null;
 }) {
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [active, setActive] = useActiveIndex(flights.length);
+  const initialIndex = focusId ? flights.findIndex((item) => item.id === focusId) : 0;
+  const [active, setActive] = useActiveIndex(flights.length, initialIndex);
   const flight = flights[active];
 
   function update(id: string, patch: Partial<Flight>) {
@@ -254,8 +258,8 @@ export function FlightsForm({
   }
 
   async function save() {
-    if (flights.some((item) => endsBeforeStart(item.departAt, item.arriveAt))) {
-      setError("Arrival must be at or after departure.");
+    if (flights.some((item) => arrivalBeforeDeparture(item))) {
+      setError(ARRIVAL_BEFORE_DEPARTURE);
       return;
     }
     setPending(true);
@@ -290,8 +294,8 @@ export function FlightsForm({
           <TextField fullWidth label="Flight #" value={flight.flightNumber} onChange={(event) => update(flight.id, { flightNumber: event.target.value })} />
           <TextField fullWidth label="From" value={flight.fromAirport} onChange={(event) => update(flight.id, { fromAirport: event.target.value })} />
           <TextField fullWidth label="To" value={flight.toAirport} onChange={(event) => update(flight.id, { toAirport: event.target.value })} />
-          <TextField fullWidth sx={{ ...wide, "& .MuiInputBase-input": { minWidth: 0 } }} label="Depart (local)" type="datetime-local" value={flight.departAt ?? ""} slotProps={{ ...dateSlot, htmlInput: { max: flight.arriveAt || undefined } }} onChange={(event) => update(flight.id, { departAt: event.target.value || null })} />
-          <TextField fullWidth sx={{ ...wide, "& .MuiInputBase-input": { minWidth: 0 } }} label="Arrive (local)" type="datetime-local" value={flight.arriveAt ?? ""} slotProps={{ ...dateSlot, htmlInput: { min: flight.departAt || undefined } }} onChange={(event) => update(flight.id, { arriveAt: event.target.value || null })} />
+          <TextField fullWidth sx={{ ...wide, "& .MuiInputBase-input": { minWidth: 0 } }} label="Depart (local)" type="datetime-local" value={flight.departAt ?? ""} slotProps={dateSlot} onChange={(event) => update(flight.id, { departAt: event.target.value || null })} />
+          <TextField fullWidth sx={{ ...wide, "& .MuiInputBase-input": { minWidth: 0 } }} label="Arrive (local)" type="datetime-local" value={flight.arriveAt ?? ""} slotProps={dateSlot} onChange={(event) => update(flight.id, { arriveAt: event.target.value || null })} />
           <TextField fullWidth label="Confirmation" value={flight.confirmation} onChange={(event) => update(flight.id, { confirmation: event.target.value })} />
           <TextField fullWidth label="Passengers" value={flight.passengers} onChange={(event) => update(flight.id, { passengers: event.target.value })} />
           <TextField fullWidth label="Terminal / gate" value={flight.terminalGate} onChange={(event) => update(flight.id, { terminalGate: event.target.value })} />

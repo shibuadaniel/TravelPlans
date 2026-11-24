@@ -3,6 +3,7 @@ import "server-only";
 import { createHash, randomBytes, randomUUID } from "crypto";
 import { cache } from "react";
 import { dbAll, dbGet, dbRun, transaction } from "@/lib/db";
+import { ARRIVAL_BEFORE_DEPARTURE, arrivalBeforeDeparture } from "@/lib/flight-time";
 import { calendarDayNumber, endsBeforeStart } from "@/lib/format";
 import { removeStoredFile } from "@/lib/uploads";
 import { cleanJwUrl } from "@/lib/urls";
@@ -702,8 +703,8 @@ export async function saveOverview(
 }
 
 export async function saveFlights(tripId: string, flights: Flight[]) {
-  if (flights.some((flight) => endsBeforeStart(flight.departAt, flight.arriveAt))) {
-    throw new Error("Arrival must be at or after departure.");
+  if (flights.some((flight) => arrivalBeforeDeparture(flight))) {
+    throw new Error(ARRIVAL_BEFORE_DEPARTURE);
   }
   const existing = new Set((await dbAll<{ id: string }>("SELECT id FROM flights WHERE trip_id = ?", tripId)).map((row) => row.id));
   const timestamp = now();
