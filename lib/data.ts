@@ -505,7 +505,7 @@ export async function saveOverview(
   if (!destination) throw new Error("Enter where you are going.");
   const travelDate = dateOnly(input.travelDate);
   const returnDate = dateOnly(input.returnDate);
-  if (travelDate && returnDate && returnDate < travelDate) {
+  if (endsBeforeStart(travelDate, returnDate)) {
     throw new Error("The return date must be on or after the travel date.");
   }
   await dbRun(

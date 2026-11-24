@@ -68,8 +68,45 @@ export function travelReturnLabel(travel: string | null, ret: string | null) {
   return `${monthDay(start)} - ${dayText(end.day)}, ${start.year}`;
 }
 
+function orderedStamp(value: string | null | undefined) {
+  const match = /^(\d{4})-(\d{2})-(\d{2})(?:T(\d{2}):(\d{2}))?/.exec((value ?? "").trim());
+  if (!match) return null;
+  const year = Number(match[1]);
+  const month = Number(match[2]);
+  const day = Number(match[3]);
+  const date = new Date(year, month - 1, day);
+  if (
+    Number.isNaN(date.getTime()) ||
+    date.getFullYear() !== year ||
+    date.getMonth() !== month - 1 ||
+    date.getDate() !== day
+  ) {
+    return null;
+  }
+  const hour = match[4] === undefined ? null : Number(match[4]);
+  const minute = match[5] === undefined ? null : Number(match[5]);
+  if (hour !== null && (hour > 23 || minute === null || minute > 59)) return null;
+  return { year, month, day, hour, minute };
+}
+
+export function calendarDayNumber(value: string | null | undefined) {
+  const stamp = orderedStamp(value);
+  if (!stamp) return null;
+  return stamp.year * 10000 + stamp.month * 100 + stamp.day;
+}
+
 export function endsBeforeStart(start: string | null | undefined, end: string | null | undefined) {
-  return Boolean(start && end && end < start);
+  const startStamp = orderedStamp(start);
+  const endStamp = orderedStamp(end);
+  if (!startStamp || !endStamp) return false;
+  if (endStamp.year !== startStamp.year) return endStamp.year < startStamp.year;
+  if (endStamp.month !== startStamp.month) return endStamp.month < startStamp.month;
+  if (endStamp.day !== startStamp.day) return endStamp.day < startStamp.day;
+  if (startStamp.hour === null || endStamp.hour === null || startStamp.minute === null || endStamp.minute === null) {
+    return false;
+  }
+  if (endStamp.hour !== startStamp.hour) return endStamp.hour < startStamp.hour;
+  return endStamp.minute < startStamp.minute;
 }
 
 export function formatDateTime(value: string | null | undefined) {

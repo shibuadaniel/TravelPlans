@@ -27,7 +27,7 @@ import {
   saveStays,
   type StayWrite,
 } from "@/lib/data";
-import { destinationKeyword, endsBeforeStart, travelReturnLabel } from "@/lib/format";
+import { calendarDayNumber, destinationKeyword, endsBeforeStart, travelReturnLabel } from "@/lib/format";
 import { removeStoredFile, storeFile } from "@/lib/uploads";
 import type {
   CarRental,
@@ -87,17 +87,19 @@ export async function saveOverviewAction(
 ): Promise<Result<{ destination: string; travelDate: string | null; returnDate: string | null; notes: string }> & { overlap?: boolean }> {
   const access = await editor(tripId);
   if (!access.role || !access.user) return { ok: false, error: "Trip not found." };
-  const start = input.travelDate?.slice(0, 10) || null;
-  const end = input.returnDate?.slice(0, 10) || start;
-  if (start && end && endsBeforeStart(start, end)) {
+  const start = calendarDayNumber(input.travelDate);
+  const end = calendarDayNumber(input.returnDate) ?? start;
+  if (start && end && endsBeforeStart(input.travelDate, input.returnDate)) {
     return { ok: false, error: "The return date must be on or after the travel date." };
   }
   if (start && end && !options?.acknowledgeOverlap) {
     const trips = await listTripsForUser(access.user.id);
     const hits = trips.filter((trip) => {
-      if (trip.id === tripId || !trip.travelDate) return false;
-      const otherStart = trip.travelDate;
-      const otherEnd = trip.returnDate && trip.returnDate >= otherStart ? trip.returnDate : otherStart;
+      if (trip.id === tripId) return false;
+      const otherStart = calendarDayNumber(trip.travelDate);
+      if (otherStart === null) return false;
+      const otherReturn = calendarDayNumber(trip.returnDate);
+      const otherEnd = otherReturn !== null && otherReturn >= otherStart ? otherReturn : otherStart;
       return start <= otherEnd && otherStart <= end;
     });
     if (hits.length > 0) {
