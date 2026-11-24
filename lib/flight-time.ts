@@ -13,6 +13,38 @@ const data = airports as AirportData;
 export const ARRIVAL_BEFORE_DEPARTURE =
   "This arrival is before the departure in real time. Check the airports and times.";
 
+function oneEditApart(a: string, b: string) {
+  const delta = a.length - b.length;
+  if (a === b || Math.abs(delta) > 1) return false;
+  let i = 0;
+  let j = 0;
+  let edits = 0;
+  while (i < a.length && j < b.length) {
+    if (a[i] === b[j]) {
+      i += 1;
+      j += 1;
+      continue;
+    }
+    edits += 1;
+    if (edits > 1) return false;
+    if (delta === 0) {
+      i += 1;
+      j += 1;
+    } else if (delta > 0) i += 1;
+    else j += 1;
+  }
+  if (i < a.length || j < b.length) edits += 1;
+  return edits === 1;
+}
+
+function cityZone(city: string) {
+  const exact = data.city[city];
+  if (exact !== undefined) return data.zones[exact] ?? null;
+  const matches = Object.keys(data.city).filter((name) => oneEditApart(name, city));
+  if (matches.length !== 1) return null;
+  return data.zones[data.city[matches[0]]] ?? null;
+}
+
 function zoneFor(value: string | null | undefined) {
   const text = (value ?? "").trim();
   if (!text) return null;
@@ -24,9 +56,15 @@ function zoneFor(value: string | null | undefined) {
   }
   const city = text.split(",")[0]?.trim().toLowerCase();
   if (!city) return null;
-  const id = data.city[city];
-  if (id === undefined) return null;
-  return data.zones[id] ?? null;
+  return cityZone(city);
+}
+
+/** UTC milliseconds of a wall-clock time at an airport, when the place is known. */
+export function placeInstant(place: string | null | undefined, local: string | null | undefined) {
+  if (!local) return null;
+  const zone = zoneFor(place);
+  if (!zone) return null;
+  return zonedLocalToUtc(local, zone);
 }
 
 function wallAsUtc(timeZone: string, utcMs: number) {

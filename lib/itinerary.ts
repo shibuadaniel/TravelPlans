@@ -7,14 +7,15 @@
  * insurance cover...), write another `ItinerarySource` and add it to
  * `ITINERARY_SOURCES`.
  *
- * Flight times are local wall-clock strings ("YYYY-MM-DDTHH:mm"), so the day
- * and time are read straight from the text, with no time zone conversion.
- * That keeps the server and browser render identical.
+ * Flight times are local wall-clock strings ("YYYY-MM-DDTHH:mm"). The day
+ * heading stays on that local date. Flights are listed in trip order: each
+ * flight's departure, then its arrival, then the next flight. Which flight
+ * comes first follows the real departure time at the airport.
  *
  * Every source must cope with missing or backwards dates: skip the bad part
  * and report it as an issue instead of throwing.
  */
-import { arrivalBeforeDeparture } from "@/lib/flight-time";
+import { arrivalBeforeDeparture, placeInstant } from "@/lib/flight-time";
 import { calendarDayNumber } from "@/lib/format";
 import type { Flight, Stay, TripBundle, TripEvent } from "@/lib/types";
 
@@ -36,6 +37,10 @@ export type ItineraryPoint = {
   minutes: number | null;
   /** Orders all-day points among timed ones within a day. */
   sortMinutes: number;
+  /** UTC milliseconds used to order points. Flight rows use the airport zone. */
+  sortAt: number;
+  /** Set on flight rows so a flight's departure and arrival stay together. */
+  flightOrder?: number;
   title: string;
   detail: string;
   /** Set for events added on the timeline, so the UI can open them for editing. */
@@ -124,6 +129,10 @@ function maxKey(keys: DateKey[]) {
   return keys.length ? keys.reduce((a, b) => (b > a ? b : a)) : null;
 }
 
+function at(date: DateKey, sortMinutes: number) {
+  return keyToUtcMs(date) + sortMinutes * 60_000;
+}
+
 // ---------------------------------------------------------------------------
 // Sources
 
@@ -154,53 +163,61 @@ const flightSource: ItinerarySource = ({ flights }) => {
     }
   }
 
-  const stamp = (t: { date: DateKey; minutes: number }) => `${t.date}T${pad(Math.floor(t.minutes / 60))}${pad(t.minutes % 60)}`;
+  const flightStart = (item: (typeof timed)[number]) => {
+    if (item.depart) return placeInstant(item.flight.fromAirport, item.flight.departAt) ?? at(item.depart.date, item.depart.minutes);
+    if (item.arrive) return placeInstant(item.flight.toAirport, item.flight.arriveAt) ?? at(item.arrive.date, item.arrive.minutes);
+    return 0;
+  };
   const dated = timed
     .filter((f) => f.depart || f.arrive)
-    .sort((a, b) => stamp((a.depart ?? a.arrive)!).localeCompare(stamp((b.depart ?? b.arrive)!)));
+    .sort((a, b) => flightStart(a) - flightStart(b) || a.index - b.index);
 
-  for (const { flight, index, depart, arrive } of dated) {
+  dated.forEach(({ flight, index, depart, arrive }, flightOrder) => {
     const label = flightLabel(flight, index);
     const from = flight.fromAirport.trim();
     const to = flight.toAirport.trim();
-    let arriveOk = Boolean(arrive);
     if (depart && arrive && arrivalBeforeDeparture(flight)) {
-      arriveOk = false;
       issues.push({
         id: `flight-backwards-${flight.id}`,
-        message: `${label} arrives before it departs. Only the departure is shown; check the arrival time.`,
+        message: `${label} arrives before it departs in real time. Both are shown; check the airports and times.`,
       });
     }
-    if (depart) {
+    const departAt = depart ? placeInstant(from, flight.departAt) ?? at(depart.date, depart.minutes) : null;
+    let arriveAt = arrive ? placeInstant(to, flight.arriveAt) ?? at(arrive.date, arrive.minutes) : null;
+    if (departAt !== null && arriveAt !== null && arriveAt === departAt) arriveAt += 1;
+    if (depart && departAt !== null) {
       points.push({
         id: `flight-depart-${flight.id}`,
         kind: "flight-depart",
         date: depart.date,
         minutes: depart.minutes,
         sortMinutes: depart.minutes,
-        title: from ? `Depart ${from}` : "Depart",
+        sortAt: departAt,
+        flightOrder,
+        title: from ? `Depart from ${from}` : "Depart",
         detail: to ? `${label} to ${to}` : label,
       });
     }
-    if (arrive && arriveOk) {
+    if (arrive && arriveAt !== null) {
       points.push({
         id: `flight-arrive-${flight.id}`,
         kind: "flight-arrive",
         date: arrive.date,
         minutes: arrive.minutes,
         sortMinutes: arrive.minutes,
+        sortAt: arriveAt,
+        flightOrder,
         title: to ? `Arrive ${to}` : "Arrive",
         detail: from ? `${label} from ${from}` : label,
       });
     }
-  }
+  });
 
-  // The last flight's landing back home may fall outside the trip; that's
-  // expected, not an error. The first departure stays, so the itinerary can
-  // start with it.
+  // Every flight keeps both rows. The first departure can open the itinerary,
+  // and the last landing can close it, even when those days sit outside the
+  // trip's own dates.
   const first = dated[0];
   const last = dated.length > 1 ? dated[dated.length - 1] : undefined;
-  if (last) optionalOutsideTrip.add(`flight-arrive-${last.flight.id}`);
 
   const find = (id: string) => points.find((p) => p.id === id);
   const firstArrive = first
@@ -264,6 +281,7 @@ const staySource: ItinerarySource = ({ stays }) => {
         date: checkIn,
         minutes: null,
         sortMinutes: CHECK_IN_SORT,
+        sortAt: at(checkIn, CHECK_IN_SORT),
         title: `Check in: ${label}`,
         detail: parts.join(" · "),
       });
@@ -275,6 +293,7 @@ const staySource: ItinerarySource = ({ stays }) => {
         date: checkOut,
         minutes: null,
         sortMinutes: CHECK_OUT_SORT,
+        sortAt: at(checkOut, CHECK_OUT_SORT),
         title: `Check out: ${label}`,
         detail: "",
       });
@@ -306,6 +325,7 @@ const customEventSource: ItinerarySource = ({ events }) => {
       date,
       minutes: null,
       sortMinutes: CUSTOM_EVENT_SORT + index / 1000,
+      sortAt: at(date, CUSTOM_EVENT_SORT + index / 1000),
       title: record.title,
       detail: record.description,
       record,
@@ -316,6 +336,29 @@ const customEventSource: ItinerarySource = ({ events }) => {
 
 /** Every source that adds points to the timeline, in priority order. */
 export const ITINERARY_SOURCES: ItinerarySource[] = [flightSource, staySource, customEventSource];
+
+// A flight is one block: departure, then arrival. Other rows sit before or
+// after the whole flight, beside whichever flight leaves next.
+function orderDay(points: ItineraryPoint[]) {
+  const flights = new Map<number, ItineraryPoint[]>();
+  const groups: { at: number; order: number; points: ItineraryPoint[] }[] = [];
+  for (const point of points) {
+    if (point.flightOrder === undefined) {
+      groups.push({ at: point.sortAt, order: point.sortAt, points: [point] });
+      continue;
+    }
+    const list = flights.get(point.flightOrder) ?? [];
+    list.push(point);
+    flights.set(point.flightOrder, list);
+  }
+  for (const [order, list] of flights) {
+    list.sort((a, b) => (a.kind === "flight-arrive" ? 1 : 0) - (b.kind === "flight-arrive" ? 1 : 0));
+    const depart = list.find((point) => point.kind === "flight-depart");
+    groups.push({ at: (depart ?? list[0]).sortAt, order, points: list });
+  }
+  groups.sort((a, b) => a.at - b.at || a.order - b.order);
+  return groups.flatMap((group) => group.points);
+}
 
 // ---------------------------------------------------------------------------
 // Build
@@ -349,10 +392,15 @@ export function buildItinerary(bundle: TripBundle, sources: ItinerarySource[] = 
   // Fall back to the trip's own dates, then to whatever the entries cover.
   // The outbound departure opens the itinerary even when the trip date is the arrival.
   const pointDates = points.map((p) => p.date);
-  const outbound = minKey(points.filter((point) => point.kind === "flight-depart").map((point) => point.date));
+  const flightDates = points
+    .filter((point) => point.kind === "flight-depart" || point.kind === "flight-arrive")
+    .map((point) => point.date);
+  const outbound = minKey(flightDates);
+  const inbound = maxKey(flightDates);
   let start: DateKey | null = arrival ?? toDateKey(bundle.trip.travelDate) ?? minKey(pointDates);
   if (outbound && (!start || outbound < start)) start = outbound;
   let end: DateKey | null = departure ?? toDateKey(bundle.trip.returnDate) ?? maxKey(pointDates);
+  if (inbound && (!end || inbound > end)) end = inbound;
 
   if (start && end && end < start) {
     issues.push({
@@ -405,9 +453,7 @@ export function buildItinerary(bundle: TripBundle, sources: ItinerarySource[] = 
       date,
       dayNumber: outsideTrip ? null : daysBetween(first, date) + 1,
       outsideTrip,
-      points: (byDate.get(date) ?? []).sort(
-        (a, b) => a.sortMinutes - b.sortMinutes || (a.record || b.record ? 0 : a.title.localeCompare(b.title)),
-      ),
+      points: orderDay(byDate.get(date) ?? []),
     };
   });
 
