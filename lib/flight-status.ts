@@ -146,6 +146,8 @@ function matchingRow(rows: StatusRow[], flight: Flight) {
   return pool[0] ?? null;
 }
 
+const LOOKUP_MS = 4000;
+
 async function lookup(iata: string, flight: Flight): Promise<FlightStatusChip | null> {
   const key = process.env.AVIATIONSTACK_ACCESS_KEY?.trim();
   if (!key) return null;
@@ -154,12 +156,23 @@ async function lookup(iata: string, flight: Flight): Promise<FlightStatusChip | 
     flight_iata: iata,
     limit: "8",
   });
-  const response = await fetch(`https://api.aviationstack.com/v1/flights?${params.toString()}`, {
-    headers: { Accept: "application/json" },
-    signal: AbortSignal.timeout(8000),
-    cache: "no-store",
-  });
-  if (!response.ok) return null;
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), LOOKUP_MS);
+  let response: Response | null = null;
+  try {
+    response = await Promise.race([
+      fetch(`https://api.aviationstack.com/v1/flights?${params.toString()}`, {
+        headers: { Accept: "application/json" },
+        signal: controller.signal,
+        cache: "no-store",
+      }),
+      new Promise<null>((resolve) => setTimeout(() => resolve(null), LOOKUP_MS)),
+    ]);
+  } finally {
+    clearTimeout(timer);
+    controller.abort();
+  }
+  if (!response?.ok) return null;
   const payload = (await response.json()) as { data?: StatusRow[]; error?: unknown };
   if (payload.error || !payload.data) return null;
   const row = matchingRow(payload.data, flight);
@@ -211,6 +224,14 @@ export async function flightStatuses(flights: Flight[]): Promise<Record<string, 
     );
   }
 
-  await Promise.all(pending);
+  await Promise.race([
+    Promise.all(pending),
+    new Promise((resolve) => setTimeout(resolve, LOOKUP_MS + 500)),
+  ]);
+  for (const flight of flights) {
+    if (result[flight.id]) continue;
+    const day = departureDay(flight.departAt);
+    if (day && stillAhead(day)) result[flight.id] = SCHEDULED;
+  }
   return result;
 }
