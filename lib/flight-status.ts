@@ -86,13 +86,28 @@ function departureDay(departAt: string | null) {
   return departAt.slice(0, 10);
 }
 
-function isFuture(day: string) {
-  return day > dayStamp(new Date());
+function calendarToday() {
+  return dayStamp(new Date());
+}
+
+function utcToday() {
+  return new Date().toISOString().slice(0, 10);
+}
+
+/** Departure day is still today or later on the server clock or in UTC. */
+function stillAhead(day: string) {
+  const local = calendarToday();
+  const utc = utcToday();
+  return day >= local || day >= utc;
+}
+
+function notYet(day: string) {
+  return day > calendarToday() && day > utcToday();
 }
 
 function operatingToday(departAt: string | null) {
   const day = departureDay(departAt);
-  if (!day || isFuture(day)) return false;
+  if (!day || notYet(day)) return false;
   const now = new Date();
   for (const offset of [-1, 0]) {
     const local = new Date(now);
@@ -160,16 +175,26 @@ export async function flightStatuses(flights: Flight[]): Promise<Record<string, 
 
   for (const flight of flights) {
     const day = departureDay(flight.departAt);
-    if (day && isFuture(day)) {
-      result[flight.id] = SCHEDULED;
+    const scheduled = () => {
+      if (day && stillAhead(day)) result[flight.id] = SCHEDULED;
+    };
+    if (day && notYet(day)) {
+      scheduled();
       continue;
     }
-    if (!key) continue;
+    if (!key) {
+      scheduled();
+      continue;
+    }
     const iata = flightIata(flight.airline, flight.flightNumber);
-    if (!iata || !operatingToday(flight.departAt)) continue;
+    if (!iata || !operatingToday(flight.departAt)) {
+      scheduled();
+      continue;
+    }
     const cached = cache.get(iata);
     if (cached && now - cached.at < TEN_MINUTES) {
       if (cached.chip) result[flight.id] = cached.chip;
+      else scheduled();
       continue;
     }
     pending.push(
@@ -177,9 +202,11 @@ export async function flightStatuses(flights: Flight[]): Promise<Record<string, 
         .then((chip) => {
           cache.set(iata, { at: Date.now(), chip });
           if (chip) result[flight.id] = chip;
+          else scheduled();
         })
         .catch(() => {
           cache.set(iata, { at: Date.now(), chip: null });
+          scheduled();
         }),
     );
   }
