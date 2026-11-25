@@ -17,7 +17,7 @@ import Stack from "@mui/material/Stack";
 import Typography from "@mui/material/Typography";
 import type { SvgIconComponent } from "@mui/icons-material";
 import { useRouter } from "next/navigation";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { EmptyNote } from "@/components/fields";
 import { EventDrawer, type EventDraft } from "@/components/event-drawer";
 import {
@@ -136,7 +136,12 @@ export function ItineraryTimeline({
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [drawerKey, setDrawerKey] = useState(0);
   const itinerary = useMemo(() => buildItinerary(bundle), [bundle]);
-  const [openDates, setOpenDates] = useState<Set<string>>(() => new Set([todayKey()]));
+  const [openDates, setOpenDates] = useState<Set<string>>(() => new Set());
+
+  useEffect(() => {
+    const today = todayKey();
+    setOpenDates((current) => (current.size === 0 ? new Set([today]) : current));
+  }, []);
 
   function toggleDay(date: string) {
     setOpenDates((current) => {
