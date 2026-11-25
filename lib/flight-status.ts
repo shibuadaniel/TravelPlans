@@ -179,6 +179,15 @@ async function lookup(iata: string, flight: Flight): Promise<FlightStatusChip | 
   return row ? chipFor(row) : null;
 }
 
+export function previewFlightStatuses(flights: Flight[]): Record<string, FlightStatusChip> {
+  const result: Record<string, FlightStatusChip> = {};
+  for (const flight of flights) {
+    const day = departureDay(flight.departAt);
+    if (day && stillAhead(day)) result[flight.id] = SCHEDULED;
+  }
+  return result;
+}
+
 export async function flightStatuses(flights: Flight[]): Promise<Record<string, FlightStatusChip>> {
   const key = process.env.AVIATIONSTACK_ACCESS_KEY?.trim();
   const cache = cacheMap();
