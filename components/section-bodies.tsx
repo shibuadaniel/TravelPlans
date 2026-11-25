@@ -94,8 +94,8 @@ export function FlightsBody({
           <FieldGrid>
             <Field label="Flight #" value={flight.flightNumber} />
             <Field label="Route" value={arrowRange(flight.fromAirport.trim(), flight.toAirport.trim())} />
-            <Field label="Depart" value={formatDateTime(flight.departAt)} />
-            <Field label="Arrive" value={formatDateTime(flight.arriveAt)} />
+            <Field label="Depart" value={formatDateTime(flight.departAt)} nowrap />
+            <Field label="Arrive" value={formatDateTime(flight.arriveAt)} nowrap />
             <Field label="Confirmation" value={flight.confirmation} />
             <Field label="Passengers" value={flight.passengers} />
             <Field label="Terminal / gate" value={flight.terminalGate} />
@@ -114,8 +114,8 @@ export function CarsBody({ cars }: { cars: CarRental[] }) {
       {cars.map((car, index) => (
         <ItemBlock key={car.id} index={index} title={carTitle(car, index)}>
           <FieldGrid>
-            <Field label="Pickup time" value={formatDateTime(car.pickupAt)} />
-            <Field label="Dropoff time" value={formatDateTime(car.dropoffAt)} />
+            <Field label="Pickup time" value={formatDateTime(car.pickupAt)} nowrap />
+            <Field label="Dropoff time" value={formatDateTime(car.dropoffAt)} nowrap />
             <Field label="Confirmation" value={car.confirmation} />
             <Field label="Vehicle" value={car.vehicleClass} />
             <Field label="Pickup" value={car.pickupPlace} full />
@@ -135,8 +135,8 @@ export function StaysBody({ stays, guest = false }: { stays: Stay[]; guest?: boo
       {stays.map((stay, index) => (
         <ItemBlock key={stay.id} index={index} title={stayTitle(stay, index)}>
           <FieldGrid>
-            <Field label="Check-in" value={stay.checkIn ? formatShortDate(stay.checkIn) : ""} />
-            <Field label="Check-out" value={stay.checkOut ? formatShortDate(stay.checkOut) : ""} />
+            <Field label="Check-in" value={stay.checkIn ? formatShortDate(stay.checkIn) : ""} nowrap />
+            <Field label="Check-out" value={stay.checkOut ? formatShortDate(stay.checkOut) : ""} nowrap />
             <Field label="Address" value={stay.address} full />
           </FieldGrid>
           {stay.documentName ? (
@@ -177,8 +177,8 @@ export function InsuranceBody({
       <FieldGrid>
         <Field label="Provider" value={insurance.provider} />
         <Field label="Policy number" value={insurance.policyNumber} />
-        <Field label="Coverage start" value={insurance.coverageStart ? formatShortDate(insurance.coverageStart) : ""} />
-        <Field label="Coverage end" value={insurance.coverageEnd ? formatShortDate(insurance.coverageEnd) : ""} />
+        <Field label="Coverage start" value={insurance.coverageStart ? formatShortDate(insurance.coverageStart) : ""} nowrap />
+        <Field label="Coverage end" value={insurance.coverageEnd ? formatShortDate(insurance.coverageEnd) : ""} nowrap />
         <Field label="Phone" value={insurance.phone} />
         <Field label="Claim notes" value={insurance.claimNotes} full />
       </FieldGrid>
@@ -228,8 +228,8 @@ export function OverviewBody({
   return (
     <FieldGrid>
       <Field label="Where are we going?" value={destination} full />
-      <Field label="Date of travel" value={travelDate ? formatShortDate(travelDate) : ""} />
-      <Field label="Date of return" value={returnDate ? formatShortDate(returnDate) : ""} />
+      <Field label="Date of travel" value={travelDate ? formatShortDate(travelDate) : ""} nowrap />
+      <Field label="Date of return" value={returnDate ? formatShortDate(returnDate) : ""} nowrap />
       <Field label="Notes" value={notes} full />
     </FieldGrid>
   );

@@ -165,7 +165,7 @@ async function lookup(iata: string, flight: Flight): Promise<FlightStatusChip | 
         headers: { Accept: "application/json" },
         signal: controller.signal,
         cache: "no-store",
-      }),
+      }).catch(() => null),
       new Promise<null>((resolve) => setTimeout(() => resolve(null), LOOKUP_MS)),
     ]);
   } finally {

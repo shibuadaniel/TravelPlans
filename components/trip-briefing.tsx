@@ -1,11 +1,12 @@
 "use client";
 
 import Box from "@mui/material/Box";
-import type { ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { ItineraryTimeline } from "@/components/itinerary-timeline";
 import { SectionAccordion } from "@/components/section-accordion";
 import { CarsBody, FlightsBody, InsuranceBody, StaysBody } from "@/components/section-bodies";
 import { TitleChrome } from "@/components/title-chrome";
+import { refreshFlightStatuses } from "@/lib/actions/flight-status";
 import { travelReturnLabel } from "@/lib/format";
 import type { FlightStatusChip, TripBundle } from "@/lib/types";
 
@@ -24,6 +25,17 @@ export function TripBriefing({
 }) {
   const { trip } = bundle;
   const editable = mode !== "guest";
+  const [statuses, setStatuses] = useState(flightStatuses);
+
+  useEffect(() => {
+    let cancel = false;
+    void refreshFlightStatuses(bundle.flights).then((next) => {
+      if (!cancel) setStatuses(next);
+    });
+    return () => {
+      cancel = true;
+    };
+  }, [bundle.flights]);
 
   return (
     <>
@@ -37,14 +49,14 @@ export function TripBriefing({
         dateEditHref={editable ? `/trips/${trip.id}/edit?step=overview` : undefined}
         actions={mode === "owner" ? ownerTools : null}
       />
-      <Box sx={{ px: 2, pt: 1 }}>
+      <Box sx={{ px: 1, pt: 1 }}>
         <SectionAccordion
           key="flights"
           title="Flights"
           defaultExpanded
           editHref={editable ? `/trips/${trip.id}/edit?step=flights` : undefined}
         >
-          <FlightsBody flights={bundle.flights} statuses={flightStatuses} />
+          <FlightsBody flights={bundle.flights} statuses={statuses} />
         </SectionAccordion>
         <SectionAccordion
           key="cars"
@@ -65,7 +77,7 @@ export function TripBriefing({
         </SectionAccordion>
         {showItinerary ? (
           <SectionAccordion key="itinerary" title="Itinerary">
-            <ItineraryTimeline bundle={bundle} editable={editable} flightStatuses={flightStatuses} />
+            <ItineraryTimeline bundle={bundle} editable={editable} flightStatuses={statuses} />
           </SectionAccordion>
         ) : null}
       </Box>

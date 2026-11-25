@@ -1055,7 +1055,11 @@ export async function deleteTrip(tripId: string) {
   );
   const clearRequests = await selectWorks("SELECT id FROM document_open_requests LIMIT 0");
   const clearCodes = await selectWorks("SELECT id FROM guest_email_codes LIMIT 0");
+  const clearEvents = await selectWorks("SELECT id FROM itinerary_events LIMIT 0");
+  const clearGuests = await selectWorks("SELECT email FROM trip_guest_emails LIMIT 0");
   await transaction(async () => {
+    if (clearEvents) await dbRun("DELETE FROM itinerary_events WHERE trip_id = ?", tripId);
+    if (clearGuests) await dbRun("DELETE FROM trip_guest_emails WHERE trip_id = ?", tripId);
     await dbRun("DELETE FROM flights WHERE trip_id = ?", tripId);
     await dbRun("DELETE FROM car_rentals WHERE trip_id = ?", tripId);
     await dbRun("DELETE FROM stays WHERE trip_id = ?", tripId);

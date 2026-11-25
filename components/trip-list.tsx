@@ -9,40 +9,39 @@ import IconButton from "@mui/material/IconButton";
 import Typography from "@mui/material/Typography";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { ConfirmDialog } from "@/components/confirm-dialog";
 import { deleteTripAction } from "@/lib/actions/trips";
 import { destinationKeyword, pastelGradient, travelReturnLabel } from "@/lib/format";
 import type { TripListItem } from "@/lib/types";
 
-function byTravelDate(a: TripListItem, b: TripListItem) {
-  if (a.travelDate && b.travelDate && a.travelDate !== b.travelDate) return a.travelDate < b.travelDate ? -1 : 1;
-  if (a.travelDate !== b.travelDate) return a.travelDate ? -1 : 1;
-  return a.destination.localeCompare(b.destination);
-}
-
 export function TripList({ trips }: { trips: TripListItem[] }) {
   const router = useRouter();
-  const [items, setItems] = useState(trips);
+  const [hiddenIds, setHiddenIds] = useState<string[]>([]);
   const [pendingDelete, setPendingDelete] = useState<TripListItem | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [hiddenPhotos, setHiddenPhotos] = useState<Record<string, boolean>>({});
+  const items = trips.filter((trip) => !hiddenIds.includes(trip.id));
+
+  useEffect(() => {
+    setHiddenIds((current) => current.filter((id) => trips.some((trip) => trip.id === id)));
+  }, [trips]);
 
   async function confirmDelete() {
     if (!pendingDelete) return;
     const trip = pendingDelete;
     setPendingDelete(null);
     setError(null);
-    setItems((current) => current.filter((item) => item.id !== trip.id));
+    setHiddenIds((current) => (current.includes(trip.id) ? current : [...current, trip.id]));
     try {
       const result = await deleteTripAction(trip.id);
       if (!result.ok) {
-        setItems((current) => [...current.filter((item) => item.id !== trip.id), trip].sort(byTravelDate));
+        setHiddenIds((current) => current.filter((id) => id !== trip.id));
         setError(result.error);
         return;
       }
     } catch {
-      setItems((current) => [...current.filter((item) => item.id !== trip.id), trip].sort(byTravelDate));
+      setHiddenIds((current) => current.filter((id) => id !== trip.id));
       setError("Could not delete this trip.");
       return;
     }

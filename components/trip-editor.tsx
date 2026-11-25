@@ -110,8 +110,8 @@ export function TripEditor({
     setEditing(step);
   }
 
-  function leaveNewTrip() {
-    void deleteTripAction(bundle.trip.id);
+  async function leaveNewTrip() {
+    await deleteTripAction(bundle.trip.id);
     router.push("/");
   }
 
@@ -158,7 +158,7 @@ export function TripEditor({
         title={destination}
         subtitle={travelReturnLabel(travelDate, returnDate)}
       />
-      <Box sx={{ px: 2, pt: 2 }}>
+      <Box sx={{ px: 1, pt: 1 }}>
         {shown("overview") ? (
         <SectionAccordion
           title="Overview"

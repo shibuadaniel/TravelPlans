@@ -37,7 +37,7 @@ export function TitleChrome({
         top: 0,
         zIndex: 10,
         bgcolor: "background.default",
-        px: 2,
+        px: 1,
         pt: "calc(16px + env(safe-area-inset-top))",
         pb: 0.5,
       }}
@@ -47,7 +47,7 @@ export function TitleChrome({
           bgcolor: tint ? "#e4f1f4" : "background.paper",
           border: 1,
           borderColor: "divider",
-          borderRadius: 2,
+          borderRadius: 1,
           display: "flex",
           alignItems: "center",
           gap: 1.25,

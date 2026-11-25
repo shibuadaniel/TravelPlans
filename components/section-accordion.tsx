@@ -70,12 +70,12 @@ export function SectionAccordion({
               }
         }
       >
-        <AccordionSummary expandIcon={locked ? undefined : <ExpandMoreIcon />}>
+        <AccordionSummary expandIcon={locked ? undefined : <ExpandMoreIcon />} sx={{ px: 1.5 }}>
           <Typography sx={{ fontWeight: 400, flex: 1, minWidth: 0, pr: hasActions ? 10 : 0 }} noWrap>
             {label}
           </Typography>
         </AccordionSummary>
-        <AccordionDetails sx={{ px: 2, pt: 0, pb: 2 }}>{children}</AccordionDetails>
+        <AccordionDetails sx={{ px: 1.5, pt: 0, pb: 1.5 }}>{children}</AccordionDetails>
       </Accordion>
       {hasActions ? (
         <Box

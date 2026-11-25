@@ -9,7 +9,7 @@ const twoColumns = {
 
 export function FieldGrid({ children }: { children: React.ReactNode }) {
   return (
-    <Box sx={{ ...twoColumns, columnGap: 2, rowGap: 1.25 }}>
+    <Box sx={{ ...twoColumns, columnGap: 1.25, rowGap: 1.25 }}>
       {children}
     </Box>
   );
@@ -27,10 +27,12 @@ export function Field({
   label,
   value,
   full = false,
+  nowrap = false,
 }: {
   label: string;
   value?: string | null;
   full?: boolean;
+  nowrap?: boolean;
 }) {
   const trimmed = value?.trim() ?? "";
   if (!trimmed) return null;
@@ -40,7 +42,14 @@ export function Field({
       <Typography variant="caption" color="text.secondary" component="div">
         {label}
       </Typography>
-      <Typography variant="body2" sx={{ whiteSpace: "pre-wrap", overflowWrap: "anywhere" }}>
+      <Typography
+        variant="body2"
+        sx={
+          nowrap && !wide
+            ? { whiteSpace: "nowrap" }
+            : { whiteSpace: "pre-wrap", overflowWrap: "anywhere" }
+        }
+      >
         {trimmed}
       </Typography>
     </Box>
