@@ -66,7 +66,9 @@ function airlineCode(airline: string) {
 
 export function flightIata(airline: string, flightNumber: string) {
   const compact = flightNumber.replace(/[^A-Za-z0-9]/g, "").toUpperCase();
-  if (/^[A-Z0-9]{2}\d{1,4}[A-Z]?$/.test(compact)) return compact;
+  // A bare number such as 735 also matches a two-character prefix. Require a letter
+  // in that prefix so the airline name is used to build the real code.
+  if (/^[A-Z0-9]{2}\d{1,4}[A-Z]?$/.test(compact) && /[A-Z]/.test(compact.slice(0, 2))) return compact;
   const code = airlineCode(airline);
   const digits = compact.replace(/\D/g, "");
   if (!code || !digits) return null;
@@ -131,13 +133,18 @@ function chipFor(row: StatusRow): FlightStatusChip {
   return { label: "Scheduled", color: "default" };
 }
 
+function rowDays(row: StatusRow) {
+  const days = new Set<string>();
+  if (row.flight_date && /^\d{4}-\d{2}-\d{2}/.test(row.flight_date)) days.add(row.flight_date.slice(0, 10));
+  const scheduled = row.departure?.scheduled ?? "";
+  if (/^\d{4}-\d{2}-\d{2}/.test(scheduled)) days.add(scheduled.slice(0, 10));
+  return days;
+}
+
 function matchingRow(rows: StatusRow[], flight: Flight) {
   const day = flight.departAt?.slice(0, 10) ?? "";
   const from = flight.fromAirport.trim().toUpperCase();
-  const sameDay = rows.filter((row) => {
-    const scheduled = row.departure?.scheduled ?? row.flight_date ?? "";
-    return day && scheduled.startsWith(day);
-  });
+  const sameDay = rows.filter((row) => day && rowDays(row).has(day));
   const pool = sameDay.length > 0 ? sameDay : [];
   if (from.length === 3) {
     const airport = pool.find((row) => row.departure?.iata?.toUpperCase() === from);
@@ -146,11 +153,11 @@ function matchingRow(rows: StatusRow[], flight: Flight) {
   return pool[0] ?? null;
 }
 
-const LOOKUP_MS = 4000;
+const LOOKUP_MS = 8000;
 
-async function lookup(iata: string, flight: Flight): Promise<FlightStatusChip | null> {
+async function lookup(iata: string, flight: Flight): Promise<{ chip: FlightStatusChip | null; complete: boolean }> {
   const key = process.env.AVIATIONSTACK_ACCESS_KEY?.trim();
-  if (!key) return null;
+  if (!key) return { chip: null, complete: false };
   const params = new URLSearchParams({
     access_key: key,
     flight_iata: iata,
@@ -158,25 +165,22 @@ async function lookup(iata: string, flight: Flight): Promise<FlightStatusChip | 
   });
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), LOOKUP_MS);
-  let response: Response | null = null;
   try {
-    response = await Promise.race([
-      fetch(`https://api.aviationstack.com/v1/flights?${params.toString()}`, {
-        headers: { Accept: "application/json" },
-        signal: controller.signal,
-        cache: "no-store",
-      }).catch(() => null),
-      new Promise<null>((resolve) => setTimeout(() => resolve(null), LOOKUP_MS)),
-    ]);
+    const response = await fetch(`https://api.aviationstack.com/v1/flights?${params.toString()}`, {
+      headers: { Accept: "application/json" },
+      signal: controller.signal,
+      cache: "no-store",
+    });
+    if (!response.ok) return { chip: null, complete: true };
+    const payload = (await response.json()) as { data?: StatusRow[]; error?: unknown };
+    if (payload.error || !payload.data) return { chip: null, complete: true };
+    const row = matchingRow(payload.data, flight);
+    return { chip: row ? chipFor(row) : null, complete: true };
+  } catch {
+    return { chip: null, complete: false };
   } finally {
     clearTimeout(timer);
-    controller.abort();
   }
-  if (!response?.ok) return null;
-  const payload = (await response.json()) as { data?: StatusRow[]; error?: unknown };
-  if (payload.error || !payload.data) return null;
-  const row = matchingRow(payload.data, flight);
-  return row ? chipFor(row) : null;
 }
 
 export function previewFlightStatuses(flights: Flight[]): Record<string, FlightStatusChip> {
@@ -220,16 +224,11 @@ export async function flightStatuses(flights: Flight[]): Promise<Record<string, 
       continue;
     }
     pending.push(
-      lookup(iata, flight)
-        .then((chip) => {
-          cache.set(iata, { at: Date.now(), chip });
-          if (chip) result[flight.id] = chip;
-          else scheduled();
-        })
-        .catch(() => {
-          cache.set(iata, { at: Date.now(), chip: null });
-          scheduled();
-        }),
+      lookup(iata, flight).then(({ chip, complete }) => {
+        if (complete) cache.set(iata, { at: Date.now(), chip });
+        if (chip) result[flight.id] = chip;
+        else scheduled();
+      }),
     );
   }
 
